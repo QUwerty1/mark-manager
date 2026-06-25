@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  moodle:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspace:cached
+      - moodledata:/var/www/moodledata
+    ports:
+      - "8080:80"
+    environment:
+      - MOODLE_URL=http://localhost:8080
+      - DB_HOST=db
+      - DB_NAME=moodle
+      - DB_USER=moodle
+      - DB_PASS=moodle
+    depends_on:
+      - db
+    networks:
+      - moodle-network
+
+  db:
+    image: postgres:14.1
+    environment:
+      - POSTGRES_DB=moodle
+      - POSTGRES_USER=moodle
+      - POSTGRES_PASSWORD=moodle
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - moodle-network
+
+volumes:
+  moodledata:
+  postgres-data:
+
+networks:
+  moodle-network:
+    driver: bridge

@@ -1,0 +1,43 @@
+{
+  "name": "Moodle 3.9 Plugin Dev",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "moodle",
+  "workspaceFolder": "/workspace",
+  "remoteUser": "vscode",
+  
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "felixfbecker.php-debug",
+        "bmewburn.vscode-intelephense-client",
+        "ms-azuretools.vscode-docker",
+        "eamodio.gitlens",
+        "cweijan.vscode-postgresql-client2"
+      ],
+      "settings": {
+        "php.validate.executablePath": "/usr/local/bin/php",
+        "php.debug.executablePath": "/usr/local/bin/php"
+      }
+    }
+  },
+
+  "forwardPorts": [8080, 5432],
+  "portsAttributes": {
+    "8080": {"label": "Moodle Web"},
+    "5432": {"label": "PostgreSQL"}
+  },
+
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  
+  "remoteEnv": {
+    "MOODLE_URL": "http://localhost:8080",
+    "DB_HOST": "db",
+    "DB_NAME": "moodle",
+    "DB_USER": "moodle",
+    "DB_PASS": "moodle"
+  }
+}
