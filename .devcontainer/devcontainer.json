@@ -16,7 +16,9 @@
         "bmewburn.vscode-intelephense-client",
         "ms-azuretools.vscode-docker",
         "eamodio.gitlens",
-        "cweijan.vscode-postgresql-client2"
+        "cweijan.vscode-postgresql-client2",
+        "streetsidesoftware.code-spell-checker",
+        "streetsidesoftware.code-spell-checker-russian"
       ],
       "settings": {
         "php.validate.executablePath": "/usr/local/bin/php",

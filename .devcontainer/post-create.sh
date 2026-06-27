@@ -15,13 +15,13 @@ if [ ! -d "$MOODLE_DIR" ]; then
     rm moodle.tgz
     echo "✅ Moodle скачан"
 else
-    echo "ℹ️  Moodle уже существует"
+    echo "ℹ️ Moodle уже существует"
 fi
 
 # Создание config.php
 CONFIG_FILE="$MOODLE_DIR/config.php"
 if [ ! -f "$CONFIG_FILE" ]; then
-    echo "⚙️  Создание config.php..."
+    echo "⚙️ Создание config.php..."
     cat > "$CONFIG_FILE" << 'EOF'
 <?php
 unset($CFG);
@@ -65,24 +65,6 @@ EOF
     echo "✅ config.php создан"
 fi
 
-# Создание директории для плагина (пример: local_myplugin)
-PLUGIN_DIR="$MOODLE_DIR/local/myplugin"
-if [ ! -d "$PLUGIN_DIR" ]; then
-    echo "📁 Создание примера плагина в local/myplugin..."
-    mkdir -p "$PLUGIN_DIR"
-    cat > "$PLUGIN_DIR/version.php" << 'EOF'
-<?php
-defined('MOODLE_INTERNAL') || die();
-
-$plugin->component = 'local_myplugin';
-$plugin->version   = 2024010100;
-$plugin->requires  = 2020061500; // Moodle 3.9
-$plugin->maturity  = MATURITY_ALPHA;
-$plugin->release   = 'v1.0.0';
-EOF
-    echo "✅ Пример плагина создан"
-fi
-
 # Установка прав
 echo "🔐 Настройка прав..."
 sudo chown -R vscode:vscode /workspace
@@ -113,12 +95,10 @@ fi
 # Настройка cron
 echo "⏰ Настройка cron..."
 
-# Создание cron задачи
 echo "* * * * * /usr/local/bin/php /workspace/moodle/admin/cli/cron.php > /dev/null 2>&1" > /tmp/moodle-cron
 sudo crontab -u vscode /tmp/moodle-cron
 rm /tmp/moodle-cron
 
-# Запуск службы cron
 sudo service cron start
 
 echo "✅ Cron настроен и запущен"
@@ -126,4 +106,8 @@ echo "✅ Cron настроен и запущен"
 # Настройка apache
 
 sudo rm /etc/apache2/sites-enabled/000-default.conf
-sudo ln -s /workspace/apache.conf /etc/apache2/sites-enabled/000-default.conf
+sudo ln -sf /workspace/apache.conf /etc/apache2/sites-enabled/000-default.conf
+
+# Создание символьных в moodle/blocks на src/mark_manager
+
+ln -sf /workspace/src/mark_manager /workspace/moodle/blocks/mark_manager
