@@ -31,15 +31,7 @@ defined('MOODLE_INTERNAL') || die();
 
 if ($hassiteconfig && $settings) {
     if ($ADMIN->fulltree) {
-        // 1. Выбор ролей, пользователям которых разрешено добавлять блок на страницу курса.
-        $settings->add(new admin_setting_pickroles(
-            'block_mark_manager/addinstanceroles',
-            get_string('addinstanceroles', 'block_mark_manager'),
-            get_string('addinstanceroles_desc', 'block_mark_manager'),
-            []
-        ));
-
-        // 2. Выбор ролей, пользователям которых всегда доступен просмотр и использование блока
+        // Выбор ролей, пользователям которых всегда доступен просмотр и использование блока
         $settings->add(new admin_setting_pickroles(
             'block_mark_manager/viewroles',
             get_string('viewroles', 'block_mark_manager'),
@@ -47,7 +39,7 @@ if ($hassiteconfig && $settings) {
             []
         ));
 
-        // 3. Выбор ролей, пользователям которых разрешено управлять доступом к блоку
+        // Выбор ролей, пользователям которых разрешено управлять доступом к блоку
         // ...для других пользователей внутри отдельных курсов.
         $settings->add(new admin_setting_pickroles(
             'block_mark_manager/manageroles',

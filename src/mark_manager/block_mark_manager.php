@@ -37,7 +37,8 @@ class block_mark_manager extends block_base
     }
 
     /**
-     * get_content
+     * Получение контента блока.
+     * Если у пользователя нет доступа, блок полностью скрывается.
      *
      * @return stdClass
      */
@@ -45,24 +46,33 @@ class block_mark_manager extends block_base
         if ($this->content !== null) {
             return $this->content;
         }
+
         $this->content = new stdClass();
-        $this->content->text = html_writer::tag('p', get_string('test_message', 'block_mark_manager'));
+        $this->content->text = '';
         $this->content->footer = '';
+
+        if (!$this->has_access()) {
+            return $this->content;
+        }
+
+        $this->content->text = html_writer::tag('p', get_string('test_message', 'block_mark_manager'));
 
         return $this->content;
     }
+
     /**
-     * applicable_formats
+     * Разрешение создания блока только на странице курса
      *
      * @return array
      */
     public function applicable_formats() {
         return [
-            'course-view' => true,
-            'site-index' => false,
-            'my' => false,
+        'course-view' => true,
+        'site-index' => false,
+        'my' => false,
         ];
     }
+
     /**
      * Запрет создания нескольких экземпляров блока в курсе
      *
@@ -71,12 +81,61 @@ class block_mark_manager extends block_base
     public function instance_allow_multiple() {
         return false;
     }
+
     /**
-     * has_config
+     * Включение глобального файла конфигурации
      *
      * @return bool
      */
     public function has_config() {
         return true;
+    }
+
+    /**
+     * Иерархическая проверка прав доступа к блоку.
+     * Возвращает true, если пользователю разрешено видеть блок.
+     *
+     * @return bool
+     */
+    private function has_access() {
+        global $USER, $DB;
+
+        if (is_siteadmin($USER->id)) {
+            return true;
+        }
+
+        if (empty($this->page->course->id)) {
+            return false;
+        }
+
+        $context = $this->page->context;
+        if ($context->contextlevel != CONTEXT_COURSE) {
+            $context = context_course::instance($this->page->course->id);
+        }
+
+        $roles = get_user_roles($context, $USER->id);
+
+        foreach ($roles as $role) {
+            if ($role->shortname === 'manager' || $role->archetype === 'manager') {
+                return true;
+            }
+        }
+
+        $viewroles = get_config('block_mark_manager', 'viewroles');
+        if (!empty($viewroles)) {
+            $allowedroleids = explode(',', $viewroles);
+            foreach ($roles as $role) {
+                if (in_array($role->roleid, $allowedroleids)) {
+                    return true;
+                }
+            }
+        }
+
+        $hasindividual = $DB->record_exists('block_mark_manager_access', [
+            'courseid' => $this->page->course->id,
+            'userid'   => $USER->id,
+        ]);
+
+        return $hasindividual;
     }
 }
