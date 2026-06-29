@@ -5,8 +5,9 @@
     "cSpell.allowCompoundWords": true,
 
     "phpsab.standard": "moodle",
-    "phpsab.executablePathCS": "/home/vscode/.composer/vendor/bin/phpcs",
-    "phpsab.executablePathCBF": "/home/vscode/.composer/vendor/bin/phpcbf",
+    "phpsab.snifferArguments": ["--ignore=*/vendor/*,*/moodle/*"],
+    "phpsab.executablePathCS": "vendor/bin/phpcs",
+    "phpsab.executablePathCBF": "vendor/bin/phpcbf",
     "[php]": {
         "editor.defaultFormatter": "valeryanm.vscode-phpsab"
     }

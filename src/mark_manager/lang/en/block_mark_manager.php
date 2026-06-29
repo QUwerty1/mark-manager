@@ -24,7 +24,7 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$string['pluginname'] = 'Менеджер оценок';
+$string['pluginname'] = 'Mark Manager';
 
 
 $string['mark_manager:addinstance'] = 'Add a new "Mark Manager" block';
@@ -32,8 +32,8 @@ $string['mark_manager:view'] = 'View the "Mark Manager" block';
 $string['mark_manager:manage'] = 'Manage individual access to the "Mark Manager" block in a course';
 
 
-$string['addinstancerole'] = 'Roles allowed to add the block';
-$string['addinstancerole_desc'] = 'Users with these roles will be able to add the "Mark Manager" block to course pages.';
+$string['addinstanceroles'] = 'Roles allowed to add the block';
+$string['addinstanceroles_desc'] = 'Users with these roles will be able to add the "Mark Manager" block to course pages.';
 
 $string['viewroles'] = 'Roles with global access to the block';
 $string['viewroles_desc'] = 'Users with these roles always see the block in all courses where it is added.';
