@@ -83,11 +83,20 @@ class block_mark_manager extends block_base
     }
 
     /**
-     * Включение глобального файла конфигурации
+     * Включение глобальной конфигурации
      *
      * @return bool
      */
     public function has_config() {
+        return true;
+    }
+
+    /**
+     * Включение конфигурации экземпляра блока
+     *
+     * @return bool
+     */
+    public function instance_allow_config() {
         return true;
     }
 

@@ -40,6 +40,7 @@
     "DB_HOST": "db",
     "DB_NAME": "moodle",
     "DB_USER": "moodle",
-    "DB_PASS": "moodle"
+    "DB_PASS": "moodle",
+    "MOODLE_DIR": "/workspace/moodle"
   }
 }

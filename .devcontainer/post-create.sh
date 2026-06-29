@@ -110,4 +110,4 @@ sudo ln -sf /workspace/apache.conf /etc/apache2/sites-enabled/000-default.conf
 
 # Создание символьных в moodle/blocks на src/mark_manager
 
-ln -sf /workspace/src/mark_manager /workspace/moodle/blocks/mark_manager
+# ln -sf /workspace/src/mark_manager /workspace/moodle/blocks/mark_manager

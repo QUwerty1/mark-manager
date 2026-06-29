@@ -8,6 +8,7 @@ services:
     volumes:
       - ..:/workspace:cached
       - moodledata:/var/www/moodledata
+      - ../src/mark_manager:/workspace/moodle/blocks/mark_manager
     ports:
       - "8080:80"
     environment:
@@ -16,6 +17,7 @@ services:
       - DB_NAME=moodle
       - DB_USER=moodle
       - DB_PASS=moodle
+      - MOODLE_DIR=/workspace/moodle
     depends_on:
       - db
     networks:
