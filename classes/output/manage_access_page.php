@@ -147,17 +147,17 @@ class manage_access_page implements renderable, templatable {
         $data->searchusers = [];
         foreach ($users as $user) {
             $addurl = new moodle_url($this->baseurl, [
-            'action'  => 'add',
-            'userid'  => $user->id,
+            'action' => 'add',
+            'userid' => $user->id,
             'sesskey' => sesskey(),
             ]);
 
             $data->searchusers[] = [
-                'userid'   => $user->id,
+                'userid' => $user->id,
                 'fullname' => fullname($user),
-                'email'    => $user->email,
-                'addurl'   => $addurl->out(false),
-                'addtext'  => get_string('add'),
+                'email' => $user->email,
+                'addurl' => $addurl->out(false),
+                'addtext' => get_string('add'),
                 'profileurl' => (new moodle_url('/user/view.php', [
                 'id' => $user->id, 'course' => $this->course->id,
                 ]))->out(false),
@@ -198,20 +198,20 @@ class manage_access_page implements renderable, templatable {
         $data->accessusers = [];
         foreach ($accessusers as $auser) {
             $removeurl = new moodle_url($this->baseurl, [
-            'action'  => 'remove',
-            'userid'  => $auser->id,
+            'action' => 'remove',
+            'userid' => $auser->id,
             'sesskey' => sesskey(),
             ]);
 
             $data->accessusers[] = [
-                'userid'      => $auser->id,
-                'fullname'    => fullname($auser),
-                'email'       => $auser->email,
+                'userid' => $auser->id,
+                'fullname' => fullname($auser),
+                'email' => $auser->email,
                 'dategranted' => userdate($auser->timecreated, get_string('strftimedatetimeshort', 'langconfig')),
-                'removeurl'   => $removeurl->out(false),
-                'removetext'  => get_string('remove'),
+                'removeurl' => $removeurl->out(false),
+                'removetext' => get_string('remove'),
                 'confirmtext' => get_string('confirmremove', 'block_mark_manager'),
-                'profileurl'  => (new moodle_url('/user/view.php', [
+                'profileurl' => (new moodle_url('/user/view.php', [
                 'id' => $auser->id, 'course' => $this->course->id,
                 ]))->out(false),
             ];

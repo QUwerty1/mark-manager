@@ -68,7 +68,7 @@ class block_mark_manager_edit_form extends block_edit_form {
         );
 
         $url = new moodle_url('/blocks/mark_manager/manage_access.php', [
-            'blockid'  => $this->block->instance->id,
+            'blockid' => $this->block->instance->id,
             'courseid' => $this->page->course->id,
         ]);
 

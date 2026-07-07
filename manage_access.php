@@ -22,14 +22,6 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-
-/**
- * @var moodle_database $DB
- * @var stdClass $USER
- * @var moodle_page $PAGE
- * @var core_renderer $OUTPUT
- */
-
 require_once(__DIR__ . '/../../config.php');
 
 $blockid = required_param('blockid', PARAM_INT);
@@ -71,7 +63,7 @@ if ($parentcontext->id !== $context->id) {
 }
 
 $baseurl = new moodle_url('/blocks/mark_manager/manage_access.php', [
-    'blockid'  => $blockid,
+    'blockid' => $blockid,
     'courseid' => $courseid,
 ]);
 
@@ -116,7 +108,6 @@ $templatedata = new \block_mark_manager\output\manage_access_page(
     $baseurl
 );
 
-/** @var \block_mark_manager\output\renderer $renderer */
 $renderer = $PAGE->get_renderer('block_mark_manager');
 echo $OUTPUT->header();
 echo $renderer->render_manage_access_page($templatedata);

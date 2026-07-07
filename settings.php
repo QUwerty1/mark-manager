@@ -17,35 +17,34 @@
 /**
  * Описание файла.
  *
- * @package    block_mark_manager
- * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package   block_mark_manager
+ * @copyright 2026 Nikita Semenov <nikita.7nov@mail.ru>
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-/**
- * @var bool $hassiteconfig
- * @var admin_root $ADMIN
- * @var admin_settingpage $settings
- */
 defined('MOODLE_INTERNAL') || die();
 
 if ($hassiteconfig && $settings) {
     if ($ADMIN->fulltree) {
         // Выбор ролей, пользователям которых всегда доступен просмотр и использование блока
-        $settings->add(new admin_setting_pickroles(
-            'block_mark_manager/viewroles',
-            get_string('viewroles', 'block_mark_manager'),
-            get_string('viewroles_desc', 'block_mark_manager'),
-            []
-        ));
+        $settings->add(
+            new admin_setting_pickroles(
+                'block_mark_manager/viewroles',
+                get_string('viewroles', 'block_mark_manager'),
+                get_string('viewroles_desc', 'block_mark_manager'),
+                []
+            )
+        );
 
         // Выбор ролей, пользователям которых разрешено управлять доступом к блоку
         // ...для других пользователей внутри отдельных курсов.
-        $settings->add(new admin_setting_pickroles(
-            'block_mark_manager/manageroles',
-            get_string('manageroles', 'block_mark_manager'),
-            get_string('manageroles_desc', 'block_mark_manager'),
-            []
-        ));
+        $settings->add(
+            new admin_setting_pickroles(
+                'block_mark_manager/manageroles',
+                get_string('manageroles', 'block_mark_manager'),
+                get_string('manageroles_desc', 'block_mark_manager'),
+                []
+            )
+        );
     }
 }

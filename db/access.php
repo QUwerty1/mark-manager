@@ -25,36 +25,35 @@
 defined('MOODLE_INTERNAL') || die();
 
 $capabilities = [
-
     'block/mark_manager:addinstance' => [
-        'riskbitmask'  => RISK_SPAM | RISK_XSS,
-        'captype'      => 'write',
+        'riskbitmask' => RISK_SPAM | RISK_XSS,
+        'captype' => 'write',
         'contextlevel' => CONTEXT_BLOCK,
-        'archetypes'   => [
+        'archetypes' => [
             'editingteacher' => CAP_ALLOW,
-            'manager'        => CAP_ALLOW,
-            'coursecreator'  => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
+            'coursecreator' => CAP_ALLOW,
         ],
         'clonepermissionsfrom' => 'moodle/site:manageblocks',
     ],
 
     'block/mark_manager:view' => [
-        'captype'      => 'read',
+        'captype' => 'read',
         'contextlevel' => CONTEXT_BLOCK,
-        'archetypes'   => [
+        'archetypes' => [
             'editingteacher' => CAP_ALLOW,
-            'teacher'        => CAP_ALLOW,
-            'manager'        => CAP_ALLOW,
+            'teacher' => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
         ],
     ],
 
     'block/mark_manager:manage' => [
-        'riskbitmask'  => RISK_SPAM | RISK_XSS,
-        'captype'      => 'write',
+        'riskbitmask' => RISK_SPAM | RISK_XSS,
+        'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
-        'archetypes'   => [
+        'archetypes' => [
             'editingteacher' => CAP_ALLOW,
-            'manager'        => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
         ],
     ],
 ];

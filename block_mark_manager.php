@@ -67,9 +67,9 @@ class block_mark_manager extends block_base
      */
     public function applicable_formats() {
         return [
-        'course-view' => true,
-        'site-index' => false,
-        'my' => false,
+            'course-view' => true,
+            'site-index' => false,
+            'my' => false,
         ];
     }
 
@@ -142,7 +142,7 @@ class block_mark_manager extends block_base
 
         $hasindividual = $DB->record_exists('block_mark_manager_access', [
             'courseid' => $this->page->course->id,
-            'userid'   => $USER->id,
+            'userid' => $USER->id,
         ]);
 
         return $hasindividual;
