@@ -43,6 +43,8 @@ class block_mark_manager extends block_base
      * @return stdClass
      */
     public function get_content() {
+        global $OUTPUT;
+
         if ($this->content !== null) {
             return $this->content;
         }
@@ -55,7 +57,56 @@ class block_mark_manager extends block_base
             return $this->content;
         }
 
-        $this->content->text = html_writer::tag('p', get_string('test_message', 'block_mark_manager'));
+        $requiresgrading = 0;
+        $graded = 0;
+        $notsubmitted = 0;
+        $drafts = 0;
+
+        $items[] = [
+            'url' => '',
+            'icon' => 'i/calendar',
+            'label' => get_string('requiresgrading', 'block_mark_manager'),
+            'count' => $requiresgrading,
+            'notnull' => $requiresgrading > 0,
+        ];
+
+        $items[] = [
+            'url' => '',
+            'icon' => 'i/valid',
+            'label' => get_string('graded', 'block_mark_manager'),
+            'count' => $graded,
+            'notnull' => $graded > 0,
+        ];
+
+        $items[] = [
+            'url' => '',
+            'icon' => 'i/invalid',
+            'label' => get_string('notsubmitted', 'block_mark_manager'),
+            'count' => $notsubmitted,
+            'notnull' => $notsubmitted > 0,
+        ];
+
+        $reports[] = [
+            'url' => '',
+            'icon' => 'i/grades',
+            'label' => get_string('progressreport', 'block_mark_manager'),
+        ];
+
+        $reports[] = [
+            'url' => '',
+            'icon' => 'i/group',
+            'label' => get_string('studentlist', 'block_mark_manager'),
+        ];
+
+        $templatecontext = [
+            'aggregations' => $items,
+            'reports' => $reports,
+        ];
+
+        $this->content->text = $OUTPUT->render_from_template(
+            'block_mark_manager/content',
+            $templatecontext
+        );
 
         return $this->content;
     }

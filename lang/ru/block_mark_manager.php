@@ -50,4 +50,10 @@ $string['confirmremove'] = 'Вы уверены, что хотите отозв�
 $string['invalidblockinstance'] = 'Некорректный экземпляр блока для данного курса.';
 $string['nopermissions'] = 'У вас нет прав для управления индивидуальным доступом.';
 
+$string['requiresgrading'] = 'Не оценено';
+$string['graded'] = 'Оценено';
+$string['notsubmitted'] = 'Не сдано';
+$string['progressreport'] = 'Журнал оценок';
+$string['studentlist'] = 'Список студентов';
+
 $string['test_message'] = 'Тестовое сообщение';

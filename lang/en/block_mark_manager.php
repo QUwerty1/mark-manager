@@ -51,6 +51,10 @@ $string['confirmremove'] = 'Are you sure you want to revoke access for this user
 $string['invalidblockinstance'] = 'Invalid block instance for this course.';
 $string['nopermissions'] = 'You do not have permission to manage individual access.';
 
-
+$string['requiresgrading'] = 'Requires Grading';
+$string['graded'] = 'Graded';
+$string['notsubmitted'] = 'Not Submitted';
+$string['progressreport'] = 'Progress Report';
+$string['studentlist'] = 'Student List';
 
 $string['test_message'] = 'Test message';
