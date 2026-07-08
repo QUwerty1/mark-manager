@@ -18,7 +18,7 @@
  * Контракт (интерфейс) для обработчиков типов сдаваемых работ.
  *
  * Каждый тип задания (задание, тест, семинар, форум и т.д.) реализует этот
- * интерфейс, чтобы Реестр (submission_type_registry) мог единообразно
+ * интерфейс, чтобы Реестр (submission_handler_registry) мог единообразно
  * агрегировать подсчёты и маршрутизировать запросы на оценивание.
  *
  * @package    block_mark_manager
@@ -26,7 +26,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace block_mark_manager\local\submission_types;
+namespace block_mark_manager\local\submission_handlers;
 
 /**
  * Интерфейс обработчика типа сдаваемой работы.
@@ -34,7 +34,7 @@ namespace block_mark_manager\local\submission_types;
  * Определяет строгий контракт, которому должен следовать каждый тип работы:
  * подсчёт количества, получение списков, рендеринг UI оценивания и сохранение оценок.
  */
-interface submission_type_interface {
+interface submission_handler_interface {
     /**
      * Возвращает уникальный идентификатор типа работы.
      *
@@ -62,17 +62,25 @@ interface submission_type_interface {
     public function get_unsubmitted_count(int $courseid): int;
 
     /**
-     * Возвращает список работ (объектов) для отображения в блоке.
+     * Возвращает количество уже проверенных (оценённых) работ в курсе.
      *
-     * Каждый элемент списка должен быть объектом/массивом, содержащим
-     * стандартные поля (имя студента, название работы, срок сдачи) и
-     * обязательно поле type_identifier, совпадающее с результатом
-     * метода get_type_identifier().
+     * @param int $courseid Идентификатор курса.
+     * @return int Целое число — количество проверенных работ.
+     */
+    public function get_graded_count(int $courseid): int;
+
+    /**
+     * Возвращает список работ для отображения в блоке.
+     *
+     * Каждый элемент списка должен быть экземпляром submission_data,
+     * заполненным стандартными полями (имя студента, название работы,
+     * срок сдачи, статус) и специфичными данными в поле options. Поле
+     * typeidentifier заполняется автоматически Реестром.
      *
      * @param int $courseid Идентификатор курса.
      * @param array $filters Массив фильтров (например, статус срока сдачи,
      *                       группировка и сортировка).
-     * @return array Массив объектов/массивов работ.
+     * @return submission_data[] Массив объектов submission_data.
      */
     public function get_works_list(int $courseid, array $filters): array;
 
