@@ -57,10 +57,15 @@ class block_mark_manager extends block_base
             return $this->content;
         }
 
-        $requiresgrading = 0;
-        $graded = 0;
-        $notsubmitted = 0;
-        $drafts = 0;
+        $registry = \block_mark_manager\local\submission_handler_registry::instance();
+        $registry->register(new \block_mark_manager\local\submission_handlers\assign_handler());
+        $registry->register(new \block_mark_manager\local\submission_handlers\quiz_handler());
+
+        $counts = $registry->aggregate_counts($this->page->course->id);
+
+        $requiresgrading = $counts['ungraded'];
+        $graded = $counts['graded'];
+        $notsubmitted = $counts['unsubmitted'];
 
         $items[] = [
             'url' => '',

@@ -50,15 +50,35 @@ class assign_handler implements submission_handler_interface {
     public function get_ungraded_count(int $courseid): int {
         global $DB;
 
-        $sql = "SELECT COUNT(DISTINCT s.id)
-                  FROM {assign} a
-                  JOIN {assign_submission} s ON s.assignment = a.id
-                  LEFT JOIN {assign_grades} g ON g.assignment = a.id AND g.userid = s.userid
-                 WHERE a.course = :courseid
-                   AND s.status = 'submitted'
-                   AND (g.id IS NULL OR g.grade IS NULL)";
+        $context = \context_course::instance($courseid);
 
-        return $DB->count_records_sql($sql, ['courseid' => $courseid]);
+        $sql = "SELECT COUNT(DISTINCT u.id)
+                  FROM {user} u
+                  JOIN {role_assignments} ra ON ra.userid = u.id AND ra.contextid = :coursecontextid
+                  JOIN {role_capabilities} rc ON rc.roleid = ra.roleid AND rc.capability = :capability AND rc.permission = 1
+                  LEFT JOIN {groups_members} gm ON gm.userid = u.id
+                  JOIN {assign} a ON a.course = :courseid
+                  JOIN {assign_submission} s_latest ON s_latest.assignment = a.id
+                      AND (s_latest.userid = u.id OR s_latest.groupid = gm.groupid)
+                      AND s_latest.attemptnumber = (
+                          SELECT MAX(s2.attemptnumber)
+                            FROM {assign_submission} s2
+                           WHERE s2.assignment = a.id
+                             AND (s2.userid = u.id OR s2.groupid = gm.groupid)
+                      )
+                  LEFT JOIN {assign_grades} g ON g.assignment = a.id
+                      AND g.userid = u.id
+                      AND g.attemptnumber = s_latest.attemptnumber
+                 WHERE u.deleted = 0
+                   AND u.suspended = 0
+                   AND s_latest.status = 'submitted'
+                   AND (g.id IS NULL OR g.grade < 0)";
+
+        return $DB->count_records_sql($sql, [
+            'courseid' => $courseid,
+            'coursecontextid' => $context->id,
+            'capability' => 'mod/assign:submit',
+        ]);
     }
 
     /**
@@ -70,13 +90,29 @@ class assign_handler implements submission_handler_interface {
     public function get_unsubmitted_count(int $courseid): int {
         global $DB;
 
-        $sql = "SELECT COUNT(DISTINCT s.id)
-                  FROM {assign} a
-                  JOIN {assign_submission} s ON s.assignment = a.id
-                 WHERE a.course = :courseid
-                   AND s.status IN ('new', 'draft')";
+        $context = \context_course::instance($courseid);
 
-        return $DB->count_records_sql($sql, ['courseid' => $courseid]);
+        $sql = "SELECT COUNT(DISTINCT u.id)
+                  FROM {user} u
+                  JOIN {role_assignments} ra ON ra.userid = u.id AND ra.contextid = :coursecontextid
+                  JOIN {role_capabilities} rc ON rc.roleid = ra.roleid AND rc.capability = :capability AND rc.permission = 1
+                  LEFT JOIN {groups_members} gm ON gm.userid = u.id
+                  JOIN {assign} a ON a.course = :courseid
+                 WHERE u.deleted = 0
+                   AND u.suspended = 0
+                   AND NOT EXISTS (
+                       SELECT 1
+                         FROM {assign_submission} s
+                        WHERE s.assignment = a.id
+                          AND (s.userid = u.id OR s.groupid = gm.groupid)
+                          AND s.status = 'submitted'
+                   )";
+
+        return $DB->count_records_sql($sql, [
+            'courseid' => $courseid,
+            'coursecontextid' => $context->id,
+            'capability' => 'mod/assign:submit',
+        ]);
     }
 
     /**
@@ -88,10 +124,17 @@ class assign_handler implements submission_handler_interface {
     public function get_graded_count(int $courseid): int {
         global $DB;
 
-        $sql = "SELECT COUNT(DISTINCT g.id)
+        $sql = "SELECT COUNT(DISTINCT s.id)
                   FROM {assign} a
-                  JOIN {assign_grades} g ON g.assignment = a.id
-                 WHERE a.course = :courseid AND g.grade IS NOT NULL";
+                  JOIN {assign_submission} s ON s.assignment = a.id
+                  JOIN {assign_grades} g ON g.assignment = a.id AND g.userid = s.userid AND g.attemptnumber = s.attemptnumber
+                 WHERE a.course = :courseid
+                   AND g.grade IS NOT NULL AND g.grade >= 0
+                   AND s.attemptnumber = (
+                       SELECT MAX(s2.attemptnumber)
+                       FROM {assign_submission} s2
+                       WHERE s2.assignment = a.id AND s2.userid = s.userid
+                   )";
 
         return $DB->count_records_sql($sql, ['courseid' => $courseid]);
     }
@@ -108,23 +151,55 @@ class assign_handler implements submission_handler_interface {
     public function get_works_list(int $courseid, array $filters): array {
         global $DB;
 
-        $sql = "SELECT s.id AS submissionid, s.assignment AS assignmentid, s.userid, s.status,
-                       a.name AS workname, a.duedate, cm.id AS cmid,
-                       u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic,
-                       u.middlename, u.alternatename
-                  FROM {assign} a
+        $context = \context_course::instance($courseid);
+
+        $sql = "SELECT u.id AS userid, u.firstname, u.lastname, u.firstnamephonetic,
+                       u.lastnamephonetic, u.middlename, u.alternatename,
+                       a.name AS workname, a.duedate, cm.id AS cmid, a.id AS assignmentid,
+                       s_latest.id AS submissionid, s_latest.status AS latest_status,
+                       CASE
+                           WHEN s_sub.id IS NULL THEN 'unsubmitted'
+                           ELSE 'ungraded'
+                       END AS status
+                  FROM {user} u
+                  JOIN {role_assignments} ra ON ra.userid = u.id AND ra.contextid = :coursecontextid
+                  JOIN {role_capabilities} rc ON rc.roleid = ra.roleid AND rc.capability = :capability AND rc.permission = 1
+                  LEFT JOIN {groups_members} gm ON gm.userid = u.id
+                  JOIN {assign} a ON a.course = :courseid
                   JOIN {course_modules} cm ON cm.instance = a.id
                   JOIN {modules} m ON m.id = cm.module AND m.name = 'assign'
-                  JOIN {assign_submission} s ON s.assignment = a.id
-                  JOIN {user} u ON u.id = s.userid
-                 WHERE a.course = :courseid AND s.status IN ('submitted', 'new', 'draft')
+                  LEFT JOIN (
+                      SELECT s1.*
+                        FROM {assign_submission} s1
+                       WHERE s1.status = 'submitted'
+                  ) s_sub ON s_sub.assignment = a.id AND (s_sub.userid = u.id OR s_sub.groupid = gm.groupid)
+                  LEFT JOIN {assign_submission} s_latest ON s_latest.assignment = a.id
+                      AND (s_latest.userid = u.id OR s_latest.groupid = gm.groupid)
+                      AND s_latest.attemptnumber = (
+                          SELECT MAX(s2.attemptnumber)
+                            FROM {assign_submission} s2
+                           WHERE s2.assignment = a.id
+                             AND (s2.userid = u.id OR s2.groupid = gm.groupid)
+                      )
+                  LEFT JOIN {assign_grades} g ON g.assignment = a.id
+                    AND g.userid = u.id
+                    AND g.attemptnumber = s_latest.attemptnumber
+                 WHERE u.deleted = 0
+                   AND u.suspended = 0
+                   AND (
+                       s_sub.id IS NULL
+                       OR (s_latest.status = 'submitted' AND (g.id IS NULL OR g.grade < 0))
+                   )
                  ORDER BY a.duedate ASC, u.lastname ASC, u.firstname ASC";
 
-        $records = $DB->get_records_sql($sql, ['courseid' => $courseid]);
+        $records = $DB->get_records_sql($sql, [
+            'courseid' => $courseid,
+            'coursecontextid' => $context->id,
+            'capability' => 'mod/assign:submit',
+        ]);
 
         $works = [];
         foreach ($records as $rec) {
-            $status = ($rec->status === 'submitted') ? 'ungraded' : 'unsubmitted';
             $works[] = new submission_data(
                 $this->get_type_identifier(),
                 $rec->cmid,
@@ -132,7 +207,7 @@ class assign_handler implements submission_handler_interface {
                 fullname($rec),
                 $rec->workname,
                 $rec->duedate,
-                $status,
+                $rec->status,
                 null,
                 [
                     'submissionid' => (int) $rec->submissionid,
@@ -198,7 +273,7 @@ class assign_handler implements submission_handler_interface {
             foreach ($areafiles as $file) {
                 $files[] = [
                     'filename' => $file->get_filename(),
-                    'url' => moodle_url::make_pluginfile_url(
+                    'url' => \moodle_url::make_pluginfile_url(
                         $file->get_contextid(),
                         $file->get_component(),
                         $file->get_filearea(),

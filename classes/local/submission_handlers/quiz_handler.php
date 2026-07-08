@@ -26,7 +26,12 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+
 namespace block_mark_manager\local\submission_handlers;
+
+defined('MOODLE_INTERNAL') || die();
+
+require_once($CFG->dirroot . '/mod/quiz/locallib.php');
 
 /**
  * Обработчик тестов (quiz).
@@ -42,22 +47,22 @@ class quiz_handler implements submission_handler_interface {
     }
 
     /**
-     * Количество непроверенных эссе-вопросов тестов.
+     * Количество непроверенных вопросов тестов (summary state = 'needsgrading').
+     *
+     * Использует тот же механизм question engine, что и отчёт «Оценивание»
+     * модуля quiz, поэтому значение совпадает с «Требуют оценки» в сводке
+     * оценивания теста.
      *
      * @param int $courseid
      * @return int
      */
     public function get_ungraded_count(int $courseid): int {
-        global $DB;
-
-        $sql = "SELECT COUNT(*)
-                  FROM {quiz} q
-                  JOIN {quiz_attempts} qa ON qa.quiz = q.id
-                  JOIN {quiz_slots} qs ON qs.quizid = q.id
-                  JOIN {question} qu ON qu.id = qs.questionid AND qu.qtype = 'essay'
-                 WHERE q.course = :courseid AND qa.state = 'finished'";
-
-        return $DB->count_records_sql($sql, ['courseid' => $courseid]);
+        $summary = $this->get_quiz_state_summary($courseid);
+        $total = 0;
+        foreach ($summary as $row) {
+            $total += $row->needsgrading;
+        }
+        return $total;
     }
 
     /**
@@ -85,23 +90,53 @@ class quiz_handler implements submission_handler_interface {
     }
 
     /**
-     * Количество уже проверенных (оценённых) эссе-вопросов тестов.
+     * Количество уже проверенных вопросов тестов (summary state
+     * 'manuallygraded' + 'autograded').
      *
      * @param int $courseid
      * @return int
      */
     public function get_graded_count(int $courseid): int {
-        global $DB;
+        $summary = $this->get_quiz_state_summary($courseid);
+        $total = 0;
+        foreach ($summary as $row) {
+            $total += $row->manuallygraded + $row->autograded;
+        }
+        return $total;
+    }
 
-        $sql = "SELECT COUNT(*)
-                  FROM {quiz} q
-                  JOIN {quiz_attempts} qa ON qa.quiz = q.id
-                  JOIN {quiz_slots} qs ON qs.quizid = q.id
-                  JOIN {question} qu ON qu.id = qs.questionid AND qu.qtype = 'essay'
-                  JOIN {quiz_grades} qg ON qg.quiz = q.id AND qg.userid = qa.userid
-                 WHERE q.course = :courseid AND qa.state = 'finished' AND qg.grade IS NOT NULL";
+    /**
+     * Возвращает сводку состояний вопросов всех завершённых попыток тестов
+     * курса, используя question engine data mapper (как отчёт оценивания quiz).
+     *
+     * @param int $courseid
+     * @return array Массив объектов со полями needsgrading/autograded/manuallygraded/all.
+     */
+    private function get_quiz_state_summary(int $courseid): array {
+        $dm = new \question_engine_data_mapper();
+        $qubaids = $this->get_qubaids_condition($courseid);
+        return $dm->load_questions_usages_question_state_summary($qubaids);
+    }
 
-        return $DB->count_records_sql($sql, ['courseid' => $courseid]);
+    /**
+     * Строит условие выборки question usages для завершённых, не preview
+     * попыток тестов заданного курса.
+     *
+     * @param int $courseid
+     * @return \qubaid_join
+     */
+    private function get_qubaids_condition(int $courseid): \qubaid_join {
+        $where = "qz.course = :mmcourseid AND quiza.preview = 0 AND quiza.state = :statefinished";
+        $params = [
+            'mmcourseid' => $courseid,
+            'statefinished' => 'finished',
+        ];
+        return new \qubaid_join(
+            "{quiz_attempts} quiza JOIN {quiz} qz ON qz.id = quiza.quiz",
+            'quiza.uniqueid',
+            $where,
+            $params
+        );
     }
 
     /**
