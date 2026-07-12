@@ -57,4 +57,29 @@ $string['notsubmitted'] = 'Not Submitted';
 $string['progressreport'] = 'Progress Report';
 $string['studentlist'] = 'Student List';
 
+$string['grade'] = 'Grade';
+$string['noworks'] = 'No works to grade.';
+$string['status_ungraded'] = 'Ungraded';
+$string['status_unsubmitted'] = 'Not submitted';
+$string['status_graded'] = 'Graded';
+$string['unknownsubmissiontype'] = 'Unknown submission type "{$a}".';
+
+$string['student'] = 'Student';
+$string['work'] = 'Work';
+$string['duedate'] = 'Due date';
+$string['submissiontext'] = 'Submission';
+$string['attachedfiles'] = 'Attached files';
+$string['gradevalue'] = 'Grade';
+$string['feedback'] = 'Feedback';
+$string['savegrade'] = 'Save grade';
+$string['questionsummary'] = 'Questions requiring manual grading';
+$string['questionname'] = 'Question';
+$string['currentmark'] = 'Current mark';
+$string['awardedmark'] = 'Awarded mark';
+$string['overallgrade'] = 'Overall grade';
+$string['nogradeyet'] = 'Not graded yet';
+$string['nofiles'] = 'No attached files.';
+$string['nosubmissiontext'] = 'No submission text.';
+$string['noquestions'] = 'No questions require manual grading.';
+
 $string['test_message'] = 'Test message';

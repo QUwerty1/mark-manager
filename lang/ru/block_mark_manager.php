@@ -56,4 +56,11 @@ $string['notsubmitted'] = 'Не сдано';
 $string['progressreport'] = 'Журнал оценок';
 $string['studentlist'] = 'Список студентов';
 
+$string['grade'] = 'Оценить';
+$string['noworks'] = 'Нет работ для оценивания.';
+$string['status_ungraded'] = 'Не оценено';
+$string['status_unsubmitted'] = 'Не сдано';
+$string['status_graded'] = 'Оценено';
+$string['unknownsubmissiontype'] = 'Неизвестный тип сдаваемой работы "{$a}".';
+
 $string['test_message'] = 'Тестовое сообщение';

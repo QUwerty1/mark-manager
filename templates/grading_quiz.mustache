@@ -1,0 +1,54 @@
+{{! @template block_mark_manager/grading_quiz }}
+
+<form class="mm-grade-form mm-grade-form-quiz" data-type="{{typeidentifier}}" data-workid="{{workid}}" data-userid="{{userid}}">
+    <div class="mm-grade-header mb-3">
+        <h5 class="mm-student-name font-weight-bold">{{studentname}}</h5>
+        <div class="mm-work-name text-muted">{{workname}}</div>
+        {{#duedate}}
+            <div class="mm-due-date text-muted small">
+                {{#str}} duedate, block_mark_manager {{/str}}:
+                {{#userdate}} {{duedate}}, {{#str}} strftimedate, core {{/str}} {{/userdate}}
+            </div>
+        {{/duedate}}
+    </div>
+
+    <div class="mm-questions mb-3">
+        <h6>{{#str}} questionsummary, block_mark_manager {{/str}}</h6>
+        {{#questions}}
+            <div class="mm-question-item border rounded p-2 mb-2">
+                <div class="mm-question-name font-weight-bold">{{name}}</div>
+                <div class="form-row align-items-end">
+                    <div class="form-group col-auto mb-0">
+                        <label class="small text-muted">{{#str}} currentmark, block_mark_manager {{/str}}</label>
+                        <div class="mm-current-mark">{{#mark}}{{mark}}{{/mark}}{{^mark}}{{#str}} nogradeyet, block_mark_manager {{/str}}{{/mark}}</div>
+                    </div>
+                    <div class="form-group col-auto mb-0">
+                        <label class="small text-muted" for="mm-mark-quiz-{{workid}}-{{userid}}-{{slot}}">{{#str}} awardedmark, block_mark_manager {{/str}}</label>
+                        <input type="number" class="form-control form-control-sm" id="mm-mark-quiz-{{workid}}-{{userid}}-{{slot}}"
+                               name="marks[{{slot}}]" step="0.01" min="0"
+                               {{#mark}}value="{{mark}}"{{/mark}}>
+                    </div>
+                </div>
+            </div>
+        {{/questions}}
+        {{^questions}}
+            <div class="text-muted small">{{#str}} noquestions, block_mark_manager {{/str}}</div>
+        {{/questions}}
+    </div>
+
+    <div class="form-group">
+        <label for="mm-grade-quiz-{{workid}}-{{userid}}">{{#str}} overallgrade, block_mark_manager {{/str}}</label>
+        <input type="number" class="form-control" id="mm-grade-quiz-{{workid}}-{{userid}}"
+               name="grade" step="0.01" min="0"
+               {{#grade}}value="{{grade}}"{{/grade}}>
+    </div>
+
+    <div class="form-group">
+        <label for="mm-feedback-quiz-{{workid}}-{{userid}}">{{#str}} feedback, block_mark_manager {{/str}}</label>
+        <textarea class="form-control" id="mm-feedback-quiz-{{workid}}-{{userid}}" name="feedback" rows="4"></textarea>
+    </div>
+
+    <div class="form-group mb-0 text-right">
+        <button type="submit" class="btn btn-primary">{{#str}} savegrade, block_mark_manager {{/str}}</button>
+    </div>
+</form>

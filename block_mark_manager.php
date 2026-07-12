@@ -22,6 +22,12 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+
+defined('MOODLE_INTERNAL') || die();
+
+require_once(__DIR__ . '/lib.php');
+
+use block_mark_manager\local\submission_handler_registry;
 /**
  * Класс блока "Менеджер оценивания"
  */
@@ -53,13 +59,12 @@ class block_mark_manager extends block_base
         $this->content->text = '';
         $this->content->footer = '';
 
-        if (!$this->has_access()) {
+        if (empty($this->page->course->id) || !block_mark_manager_user_can_access($this->page->course->id)) {
             return $this->content;
         }
 
-        $registry = \block_mark_manager\local\submission_handler_registry::instance();
-        $registry->register(new \block_mark_manager\local\submission_handlers\assign_handler());
-        $registry->register(new \block_mark_manager\local\submission_handlers\quiz_handler());
+        block_mark_manager_register_handlers();
+        $registry = submission_handler_registry::instance();
 
         $counts = $registry->aggregate_counts($this->page->course->id);
 
@@ -154,53 +159,5 @@ class block_mark_manager extends block_base
      */
     public function instance_allow_config() {
         return true;
-    }
-
-    /**
-     * Иерархическая проверка прав доступа к блоку.
-     * Возвращает true, если пользователю разрешено видеть блок.
-     *
-     * @return bool
-     */
-    private function has_access() {
-        global $USER, $DB;
-
-        if (is_siteadmin($USER->id)) {
-            return true;
-        }
-
-        if (empty($this->page->course->id)) {
-            return false;
-        }
-
-        $context = $this->page->context;
-        if ($context->contextlevel != CONTEXT_COURSE) {
-            $context = context_course::instance($this->page->course->id);
-        }
-
-        $roles = get_user_roles($context, $USER->id);
-
-        foreach ($roles as $role) {
-            if ($role->shortname === 'manager' || $role->archetype === 'manager') {
-                return true;
-            }
-        }
-
-        $viewroles = get_config('block_mark_manager', 'viewroles');
-        if (!empty($viewroles)) {
-            $allowedroleids = explode(',', $viewroles);
-            foreach ($roles as $role) {
-                if (in_array($role->roleid, $allowedroleids)) {
-                    return true;
-                }
-            }
-        }
-
-        $hasindividual = $DB->record_exists('block_mark_manager_access', [
-            'courseid' => $this->page->course->id,
-            'userid' => $USER->id,
-        ]);
-
-        return $hasindividual;
     }
 }

@@ -1,0 +1,50 @@
+{{! @template block_mark_manager/grading_assign }}
+
+<form class="mm-grade-form mm-grade-form-assign" data-type="{{typeidentifier}}" data-workid="{{workid}}" data-userid="{{userid}}">
+    <div class="mm-grade-header mb-3">
+        <h5 class="mm-student-name font-weight-bold">{{studentname}}</h5>
+        <div class="mm-work-name text-muted">{{workname}}</div>
+        {{#duedate}}
+            <div class="mm-due-date text-muted small">
+                {{#str}} duedate, block_mark_manager {{/str}}:
+                {{#userdate}} {{duedate}}, {{#str}} strftimedate, core {{/str}} {{/userdate}}
+            </div>
+        {{/duedate}}
+    </div>
+
+    <div class="mm-submission mb-3">
+        <h6>{{#str}} submissiontext, block_mark_manager {{/str}}</h6>
+        {{#submissiontext}}
+            <div class="mm-submission-text border rounded p-2 bg-light">{{submissiontext}}</div>
+        {{/submissiontext}}
+        {{^submissiontext}}
+            <div class="text-muted small">{{#str}} nosubmissiontext, block_mark_manager {{/str}}</div>
+        {{/submissiontext}}
+
+        <h6 class="mt-2">{{#str}} attachedfiles, block_mark_manager {{/str}}</h6>
+        {{#files}}
+            <ul class="mm-file-list list-unstyled">
+                <li><a href="{{url}}" target="_blank" rel="noopener">{{filename}}</a></li>
+            </ul>
+        {{/files}}
+        {{^files}}
+            <div class="text-muted small">{{#str}} nofiles, block_mark_manager {{/str}}</div>
+        {{/files}}
+    </div>
+
+    <div class="form-group">
+        <label for="mm-grade-assign-{{workid}}-{{userid}}">{{#str}} gradevalue, block_mark_manager {{/str}}</label>
+        <input type="number" class="form-control" id="mm-grade-assign-{{workid}}-{{userid}}"
+               name="grade" step="0.01" min="0"
+               {{#grade}}value="{{grade}}"{{/grade}}>
+    </div>
+
+    <div class="form-group">
+        <label for="mm-feedback-assign-{{workid}}-{{userid}}">{{#str}} feedback, block_mark_manager {{/str}}</label>
+        <textarea class="form-control" id="mm-feedback-assign-{{workid}}-{{userid}}" name="feedback" rows="4"></textarea>
+    </div>
+
+    <div class="form-group mb-0 text-right">
+        <button type="submit" class="btn btn-primary">{{#str}} savegrade, block_mark_manager {{/str}}</button>
+    </div>
+</form>
