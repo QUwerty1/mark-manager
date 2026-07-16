@@ -385,9 +385,13 @@ class quiz_handler implements submission_handler_interface {
      * @param int $userid
      * @param float $grade
      * @param string $feedback
+     * @param array $options Дополнительные данные. Поддерживается ключ
+     *                        'marks' — массив оценок по слотам вопросов
+     *                        (slot => оценка), которые сохраняются через
+     *                        question engine как ручные оценки.
      * @return bool
      */
-    public function save_grade(int $workid, int $userid, float $grade, string $feedback): bool {
+    public function save_grade(int $workid, int $userid, float $grade, string $feedback, array $options = []): bool {
         global $DB;
 
         $cm = get_coursemodule_from_id('quiz', $workid, 0, false, MUST_EXIST);
@@ -422,6 +426,51 @@ class quiz_handler implements submission_handler_interface {
             }
         }
 
+        if (!empty($options['marks']) && is_array($options['marks'])) {
+            $this->save_question_marks($quiz->id, $userid, $options['marks']);
+        }
+
         return true;
+    }
+
+    /**
+     * Сохраняет ручные оценки по отдельным вопросам (слотам) завершённой попытки.
+     *
+     * Использует question engine для применения оценки к каждому вопросу и
+     * пересчёта попытки, что синхронизирует итоговую оценку теста.
+     *
+     * @param int $quizid Идентификатор теста.
+     * @param int $userid Идентификатор студента.
+     * @param array $marks Массив оценок по слотам (slot => оценка).
+     * @return void
+     */
+    private function save_question_marks(int $quizid, int $userid, array $marks): void {
+        global $DB;
+
+        $attempt = $DB->get_record('quiz_attempts', [
+            'quiz' => $quizid,
+            'userid' => $userid,
+            'state' => 'finished',
+        ], '*', IGNORE_MULTIPLE);
+
+        if (!$attempt) {
+            return;
+        }
+
+        $quba = \question_engine::load_questions_usage_by_activity($attempt->uniqueid);
+        $changed = false;
+        foreach ($marks as $slot => $mark) {
+            $slot = (int) $slot;
+            if (!$quba->question_exists($slot)) {
+                continue;
+            }
+            $quba->set_question_attempt_mark($slot, (float) $mark);
+            $quba->regrade_question($slot, false);
+            $changed = true;
+        }
+
+        if ($changed) {
+            \question_engine::save_questions_usage_by_activity($quba);
+        }
     }
 }

@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Метаданные версии плагина «Менеджер оценивания».
+ * Регистрация веб-сервисов блока "Менеджер оценивания".
  *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
@@ -24,9 +24,13 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2026062906;
-$plugin->requires  = 2020061500;
-$plugin->component = 'block_mark_manager';
-$plugin->maturity  = MATURITY_ALPHA;
-$plugin->release   = 'v0.1.0';
-$plugin->description = '';
+$functions = [
+    'block_mark_manager_save_submission_grade' => [
+        'classname'     => 'block_mark_manager\\external\\save_submission_grade',
+        'methodname'    => 'execute',
+        'description'   => 'Save a grade and feedback for a submission via the registry handler.',
+        'type'          => 'write',
+        'ajax'          => true,
+        'capabilities'  => 'block/mark_manager:grade',
+    ],
+];

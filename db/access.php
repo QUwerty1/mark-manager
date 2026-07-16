@@ -56,4 +56,13 @@ $capabilities = [
             'manager' => CAP_ALLOW,
         ],
     ],
+
+    'block/mark_manager:grade' => [
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_COURSE,
+        'archetypes' => [
+            'editingteacher' => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
+        ],
+    ],
 ];

@@ -78,6 +78,7 @@ class block_mark_manager extends block_base
             'label' => get_string('requiresgrading', 'block_mark_manager'),
             'count' => $requiresgrading,
             'notnull' => $requiresgrading > 0,
+            'status' => 'ungraded',
         ];
 
         $items[] = [
@@ -86,6 +87,7 @@ class block_mark_manager extends block_base
             'label' => get_string('graded', 'block_mark_manager'),
             'count' => $graded,
             'notnull' => $graded > 0,
+            'status' => 'graded',
         ];
 
         $items[] = [
@@ -94,6 +96,7 @@ class block_mark_manager extends block_base
             'label' => get_string('notsubmitted', 'block_mark_manager'),
             'count' => $notsubmitted,
             'notnull' => $notsubmitted > 0,
+            'status' => 'unsubmitted',
         ];
 
         $reports[] = [
@@ -111,12 +114,15 @@ class block_mark_manager extends block_base
         $templatecontext = [
             'aggregations' => $items,
             'reports' => $reports,
+            'courseid' => $this->page->course->id,
         ];
 
         $this->content->text = $OUTPUT->render_from_template(
             'block_mark_manager/content',
             $templatecontext
         );
+
+        $this->page->requires->js_call_amd('block_mark_manager/modal', 'init', [$this->page->course->id]);
 
         return $this->content;
     }

@@ -63,4 +63,15 @@ $string['status_unsubmitted'] = 'Не сдано';
 $string['status_graded'] = 'Оценено';
 $string['unknownsubmissiontype'] = 'Неизвестный тип сдаваемой работы "{$a}".';
 
+$string['opengrading'] = 'Оценивание';
+$string['filter_student'] = 'Имя студента';
+$string['filter_status'] = 'Статус';
+$string['status_all'] = 'Все статусы';
+$string['worklist'] = 'Сданные работы';
+$string['selectstatus'] = 'Выберите статус выше, чтобы загрузить работы.';
+$string['selectsubmission'] = 'Выберите работу из списка, чтобы оценить её.';
+$string['gradesaved'] = 'Оценка успешно сохранена.';
+$string['gradeerror'] = 'Не удалось сохранить оценку.';
+
+$string['unknownfragment'] = 'Неизвестное имя фрагмента "{$a}".';
 $string['test_message'] = 'Тестовое сообщение';

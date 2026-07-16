@@ -64,6 +64,16 @@ $string['status_unsubmitted'] = 'Not submitted';
 $string['status_graded'] = 'Graded';
 $string['unknownsubmissiontype'] = 'Unknown submission type "{$a}".';
 
+$string['opengrading'] = 'Grading';
+$string['filter_student'] = 'Student name';
+$string['filter_status'] = 'Status';
+$string['status_all'] = 'All statuses';
+$string['worklist'] = 'Submissions';
+$string['selectstatus'] = 'Select a status above to load submissions.';
+$string['selectsubmission'] = 'Select a submission from the list to grade it.';
+$string['gradesaved'] = 'Grade saved successfully.';
+$string['gradeerror'] = 'Failed to save grade.';
+
 $string['student'] = 'Student';
 $string['work'] = 'Work';
 $string['duedate'] = 'Due date';
@@ -82,4 +92,5 @@ $string['nofiles'] = 'No attached files.';
 $string['nosubmissiontext'] = 'No submission text.';
 $string['noquestions'] = 'No questions require manual grading.';
 
+$string['unknownfragment'] = 'Unknown fragment name "{$a}".';
 $string['test_message'] = 'Test message';

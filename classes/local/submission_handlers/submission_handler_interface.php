@@ -114,7 +114,8 @@ interface submission_handler_interface {
      * @param int $userid Идентификатор пользователя (студента).
      * @param float $grade Новая оценка.
      * @param string $feedback Текстовый комментарий/обратная связь.
+     * @param array $options Ассоциативный массив дополнительных данных.
      * @return bool Статус успешного сохранения.
      */
-    public function save_grade(int $workid, int $userid, float $grade, string $feedback): bool;
+    public function save_grade(int $workid, int $userid, float $grade, string $feedback, array $options = []): bool;
 }

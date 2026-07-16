@@ -1,0 +1,30 @@
+{{! @template block_mark_manager/modal_body }}
+
+<div class="block-mark-manager-modal">
+    <div class="mm-modal-filters mb-3 p-2 border-bottom">
+        <div class="form-row align-items-end">
+            <div class="form-group col-md-6 mb-2">
+                <label for="mm-filter-student" class="sr-only">{{#str}} filter_student, block_mark_manager {{/str}}</label>
+                <input type="text" class="form-control mm-filter-student" id="mm-filter-student"
+                       placeholder="{{#str}} filter_student, block_mark_manager {{/str}}">
+            </div>
+            <div class="form-group col-md-6 mb-2">
+                <label for="mm-filter-status" class="sr-only">{{#str}} filter_status, block_mark_manager {{/str}}</label>
+                <select class="form-control mm-filter-status" id="mm-filter-status">
+                    <option value="">{{#str}} status_all, block_mark_manager {{/str}}</option>
+                    <option value="ungraded">{{#str}} status_ungraded, block_mark_manager {{/str}}</option>
+                    <option value="graded">{{#str}} status_graded, block_mark_manager {{/str}}</option>
+                    <option value="unsubmitted">{{#str}} status_unsubmitted, block_mark_manager {{/str}}</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <div class="mm-modal-body row">
+        <div class="mm-modal-list col-md-5 border-right" aria-label="{{#str}} worklist, block_mark_manager {{/str}}">
+            <div class="mm-modal-list-placeholder text-muted">{{#str}} selectstatus, block_mark_manager {{/str}}</div>
+        </div>
+        <div class="mm-modal-grade col-md-7" aria-label="{{#str}} grade, block_mark_manager {{/str}}">
+            <div class="mm-modal-grade-placeholder text-muted">{{#str}} selectsubmission, block_mark_manager {{/str}}</div>
+        </div>
+    </div>
+</div>

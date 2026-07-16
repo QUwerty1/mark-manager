@@ -88,6 +88,32 @@ function block_mark_manager_user_can_access(int $courseid) {
 }
 
 /**
+ * Основной диспетчер фрагментов для блока "Менеджер оценивания".
+ *
+ * Маршрутизирует запросы от core/fragment к соответствующей функции-обработчику
+ * в зависимости от имени фрагмента.
+ *
+ * @param array $args Аргументы фрагмента, содержащие 'fragment' (имя фрагмента)
+ *                    и прочие параметры, специфичные для каждого фрагмента.
+ * @return string HTML-содержимое фрагмента.
+ */
+function block_mark_manager_output_fragment($args) {
+    $fragment = $args['fragment'] ?? '';
+    $fragmentargs = (array) ($args['args'] ?? []);
+
+    switch ($fragment) {
+        case 'work_list':
+            $result = block_mark_manager_fragment_work_list($fragmentargs);
+            return $result['content'] ?? '';
+        case 'grade_work':
+            $result = block_mark_manager_fragment_grade_work($fragmentargs);
+            return $result['content'] ?? '';
+        default:
+            throw new \moodle_exception('error', '', '', get_string('unknownfragment', 'block_mark_manager', $fragment));
+    }
+}
+
+/**
  * Фрагмент: объединённый список работ всех зарегистрированных типов.
  *
  * Использует Реестр для агрегации списков от всех обработчиков и передаёт
@@ -100,14 +126,14 @@ function block_mark_manager_user_can_access(int $courseid) {
  *    sortdir ('asc'|'desc').
  *
  * @param array $args Аргументы фрагмента.
- * @return array ['content' => string HTML]
+ * @return string HTML-содержимое фрагмента.
  */
 function block_mark_manager_fragment_work_list($args) {
     global $OUTPUT;
 
     $args = (array) $args;
     $courseid = (int) ($args['courseid'] ?? 0);
-    $filters = (array) ($args['filters'] ?? []);
+    $filters = !empty($args['filters']) ? json_decode($args['filters'], true) : [];
 
     if ($courseid <= 0) {
         throw new \moodle_exception('invalidcourseid', 'error');

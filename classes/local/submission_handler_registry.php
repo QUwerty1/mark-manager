@@ -140,6 +140,8 @@ class submission_handler_registry {
      * Поддерживаемые ключи в $filters:
      *  - 'sortby': 'duedate' (по умолчанию) или 'student' (по имени студента).
      *  - 'sortdir': 'asc' (по умолчанию) или 'desc'.
+     *  - 'status': 'ungraded' | 'unsubmitted' | 'graded' (фильтр по статусу).
+     *  - 'student': строка для поиска по имени студента (подстрока, без учёта регистра).
      *
      * @param int $courseid Идентификатор курса.
      * @param array $filters Массив фильтров и параметров сортировки.
@@ -156,6 +158,22 @@ class submission_handler_registry {
                 }
                 $works[] = $item;
             }
+        }
+
+        if (!empty($filters['status']) && in_array($filters['status'], ['ungraded', 'unsubmitted', 'graded'], true)) {
+            $status = $filters['status'];
+            $works = array_filter($works, static function ($item) use ($status) {
+                return $item instanceof submission_data && $item->status === $status;
+            });
+        }
+
+        if (!empty($filters['student'])) {
+            $needle = \core_text::strtolower(trim($filters['student']));
+            $works = array_filter($works, static function ($item) use ($needle) {
+                return $item instanceof submission_data
+                    && $needle !== ''
+                    && strpos(\core_text::strtolower($item->studentname), $needle) !== false;
+            });
         }
 
         $sortby = $filters['sortby'] ?? 'duedate';

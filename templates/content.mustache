@@ -4,7 +4,9 @@
     <ul class="m-0 p-0">
         {{#aggregations}}
             <li class="d-flex justify-content-between align-items-center">
-                <a href="{{url}}">{{#pix}} {{icon}}, core, {{label}} {{/pix}} {{label}}</a>
+                <a href="#" class="mm-open-modal" data-status="{{status}}">
+                    {{#pix}} {{icon}}, core, {{label}} {{/pix}} {{label}}
+                </a>
                 <span class="badge badge-primary badge-pill rounded-pill">{{count}}</span>
             </li>
         {{/aggregations}}
@@ -17,4 +19,4 @@
             </li>
         {{/reports}}
     </ul>
-</div>  
+</div>
