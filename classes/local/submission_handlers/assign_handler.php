@@ -153,10 +153,10 @@ class assign_handler implements submission_handler_interface {
             $context = \context_module::instance($cm->id);
             $assign = new \assign($context, $cm, $cm->course);
 
-            $enrolledusers = get_enrolled_users($context, 'mod/assign:submit', 0, 'u.*', null, 0, 0, true);
+            $enrolledusers = get_enrolled_users($context, '', 0, 'u.*', null, 0, 0, true);
 
             foreach ($enrolledusers as $user) {
-                if ($user->deleted || $user->suspended) {
+                if (!empty($user->deleted) || !empty($user->suspended)) {
                     continue;
                 }
 
