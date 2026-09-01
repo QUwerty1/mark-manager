@@ -17,13 +17,21 @@
 /**
  * Библиотечные функции блока "Менеджер оценивания".
  *
- * Содержит фрагменты (fragment callbacks), используемые для динамической
- * маршрутизации запросов к нужному обработчику типа работ через Реестр.
+ * ВАЖНО: Moodle Fragment API вызывает функции с именами вида
+ *   {component}_output_fragment_{callback}
+ * То есть для callback='work_list' нужна функция
+ *   block_mark_manager_output_fragment_work_list($args)
+ * Аргументы из JS приходят напрямую в $args (не во вложенном 'args').
+ *
+ * Moodle автоматически устанавливает контекст, тему и $PAGE перед вызовом,
+ * поэтому ВНУТРИ функций НЕЛЬЗЯ вызывать $PAGE->set_context/set_course.
  *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 use block_mark_manager\local\submission_handler_registry;
 use block_mark_manager\local\submission_handlers;
@@ -31,37 +39,37 @@ use block_mark_manager\local\submission_handlers;
 /**
  * Регистрирует стандартные обработчики типов работ в Реестре.
  *
- * Фрагменты выполняются в отдельном AJAX-запросе, где метод get_content()
- * блока не вызывается, поэтому обработчики должны быть зарегистрированы
- * явно внутри каждого фрагмента.
- *
  * @return void
  */
-function block_mark_manager_register_handlers() {
+function block_mark_manager_register_handlers(): void {
     $registry = submission_handler_registry::instance();
-    $registry->register(new submission_handlers\assign_handler());
-    $registry->register(new submission_handlers\quiz_handler());
+
+    if ($registry->get_handler('assign') === null) {
+        $registry->register(new submission_handlers\assign_handler());
+    }
+    if ($registry->get_handler('quiz') === null) {
+        $registry->register(new submission_handlers\quiz_handler());
+    }
 }
 
 /**
  * Иерархическая проверка прав доступа к блоку для заданного курса.
  *
- *  1) Администраторы сайта — всегда имеют доступ.
- *  2) Пользователи с ролью/архетипом manager — имеют доступ.
- *  3) Пользователи с ролями из настройки viewroles — имеют доступ.
- *  4) Пользователи с индивидуальной записью в таблице доступа — имеют доступ.
- *
  * @param int $courseid Идентификатор курса.
  * @return bool
  */
-function block_mark_manager_user_can_access(int $courseid) {
+function block_mark_manager_user_can_access(int $courseid): bool {
     global $USER, $DB;
 
     if (is_siteadmin($USER->id)) {
         return true;
     }
 
-    $context = \context_course::instance($courseid);
+    try {
+        $context = \context_course::instance($courseid);
+    } catch (Exception $e) {
+        return false;
+    }
 
     $roles = get_user_roles($context, $USER->id);
 
@@ -88,145 +96,125 @@ function block_mark_manager_user_can_access(int $courseid) {
 }
 
 /**
- * Основной диспетчер фрагментов для блока "Менеджер оценивания".
+ * ФРАГМЕНТ: список работ (callback = 'work_list').
  *
- * Маршрутизирует запросы от core/fragment к соответствующей функции-обработчику
- * в зависимости от имени фрагмента.
- *
- * @param array $args Аргументы фрагмента, содержащие 'fragment' (имя фрагмента)
- *                    и прочие параметры, специфичные для каждого фрагмента.
+ * @param array|stdClass $args Аргументы фрагмента (courseid, filters).
  * @return string HTML-содержимое фрагмента.
  */
-function block_mark_manager_output_fragment($args) {
-    $fragment = $args['fragment'] ?? '';
-    $fragmentargs = (array) ($args['args'] ?? []);
+function block_mark_manager_output_fragment_work_list($args): string {
+    global $OUTPUT, $DB;
 
-    switch ($fragment) {
-        case 'work_list':
-            $result = block_mark_manager_fragment_work_list($fragmentargs);
-            return $result['content'] ?? '';
-        case 'grade_work':
-            $result = block_mark_manager_fragment_grade_work($fragmentargs);
-            return $result['content'] ?? '';
-        default:
-            throw new \moodle_exception('error', '', '', get_string('unknownfragment', 'block_mark_manager', $fragment));
+    try {
+        if (is_object($args)) {
+            $args = (array)$args;
+        }
+
+        $courseid = clean_param($args['courseid'] ?? 0, PARAM_INT);
+        $filtersjson = $args['filters'] ?? '{}';
+
+        if (is_string($filtersjson)) {
+            $filters = json_decode($filtersjson, true) ?: [];
+        } else {
+            $filters = (array)$filtersjson;
+        }
+
+        if ($courseid <= 0) {
+            return '<div class="alert alert-danger">Invalid course ID</div>';
+        }
+
+        if (!block_mark_manager_user_can_access($courseid)) {
+            return '<div class="alert alert-warning">' .
+                   get_string('nopermissions', 'error', 'view submissions') . '</div>';
+        }
+
+        block_mark_manager_register_handlers();
+        $registry = submission_handler_registry::instance();
+
+        $allworks = $registry->aggregate_works_list($courseid, $filters);
+
+        // КРИТИЧНО: флаги статусов должны быть внутри КАЖДОЙ работы,
+        // потому что Mustache ищет их в контексте элемента {{#works}}.
+        $templateworks = [];
+        foreach ($allworks as $work) {
+            $templateworks[] = [
+                'typeidentifier' => $work->typeidentifier,
+                'workid' => $work->workid,
+                'userid' => $work->userid,
+                'studentname' => $work->studentname,
+                'workname' => $work->workname,
+                'duedate' => $work->duedate,
+                'status' => $work->status,
+                'grade' => $work->grade,
+                'status_ungraded' => ($work->status === 'ungraded'),
+                'status_unsubmitted' => ($work->status === 'unsubmitted'),
+                'status_graded' => ($work->status === 'graded'),
+            ];
+        }
+
+        return $OUTPUT->render_from_template('block_mark_manager/work_list', [
+            'works' => $templateworks,
+        ]);
+
+    } catch (Exception $e) {
+        return '<div class="alert alert-danger"><strong>Error:</strong> ' . s($e->getMessage()) . '</div>';
+    } catch (Error $e) {
+        return '<div class="alert alert-danger"><strong>Fatal:</strong> ' . s($e->getMessage()) . '</div>';
     }
 }
 
 /**
- * Фрагмент: объединённый список работ всех зарегистрированных типов.
+ * ФРАГМЕНТ: UI оценивания работы (callback = 'grade_work').
  *
- * Использует Реестр для агрегации списков от всех обработчиков и передаёт
- * объединённый, отсортированный список в шаблон work_list.mustache. Каждый
- * элемент списка содержит свой type_identifier (проставляется Реестром).
- *
- * Ожидаемые ключи $args:
- *  - courseid (int): идентификатор курса.
- *  - filters (array, необязательно): sortby ('duedate'|'student'),
- *    sortdir ('asc'|'desc').
- *
- * @param array $args Аргументы фрагмента.
+ * @param array|stdClass $args Аргументы фрагмента (type, workid, userid).
  * @return string HTML-содержимое фрагмента.
  */
-function block_mark_manager_fragment_work_list($args) {
-    global $OUTPUT;
-
-    $args = (array) $args;
-    $courseid = (int) ($args['courseid'] ?? 0);
-    $filters = !empty($args['filters']) ? json_decode($args['filters'], true) : [];
-
-    if ($courseid <= 0) {
-        throw new \moodle_exception('invalidcourseid', 'error');
-    }
-
-    $course = get_course($courseid);
-    require_login($course);
-
-    block_mark_manager_register_handlers();
-
-    if (!block_mark_manager_user_can_access($courseid)) {
-        throw new \moodle_exception('nopermissions', 'error', '', 'view mark manager');
-    }
-
-    $registry = submission_handler_registry::instance();
-    $works = $registry->aggregate_works_list($courseid, $filters);
-
-    $worksarray = array_map(
-        static function ($work) {
-            $data = $work instanceof submission_handlers\submission_data
-                ? $work->to_array()
-                : (array) $work;
-            $status = $data['status'] ?? '';
-            $data['status_ungraded'] = ($status === 'ungraded');
-            $data['status_unsubmitted'] = ($status === 'unsubmitted');
-            $data['status_graded'] = ($status === 'graded');
-            return $data;
-        },
-        $works
-    );
-
-    $html = $OUTPUT->render_from_template(
-        'block_mark_manager/work_list',
-        ['works' => $worksarray]
-    );
-
-    return ['content' => $html];
-}
-
-/**
- * Фрагмент: UI оценивания конкретной работы конкретного студента.
- *
- * Динамически маршрутизирует запрос к нужному обработчику по параметру type,
- * запрашивает у обработчика имя специфичного Mustache-шаблона и данные для
- * него, затем рендерит этот шаблон.
- *
- * Ожидаемые ключи $args:
- *  - type (string): идентификатор типа работы ('assign', 'quiz', ...).
- *  - workid (int): идентификатор экземпляра модуля курса (cmid).
- *  - userid (int): идентификатор студента.
- *
- * @param array $args Аргументы фрагмента.
- * @return array ['content' => string HTML]
- */
-function block_mark_manager_fragment_grade_work($args) {
+function block_mark_manager_output_fragment_grade_work($args): string {
     global $DB, $OUTPUT;
 
-    $args = (array) $args;
-    $type = (string) ($args['type'] ?? '');
-    $workid = (int) ($args['workid'] ?? 0);
-    $userid = (int) ($args['userid'] ?? 0);
+    try {
+        if (is_object($args)) {
+            $args = (array)$args;
+        }
 
-    if ($workid <= 0 || $userid <= 0 || $type === '') {
-        throw new \moodle_exception('missingparam', 'error');
+        $type = clean_param($args['type'] ?? '', PARAM_ALPHANUMEXT);
+        $workid = clean_param($args['workid'] ?? 0, PARAM_INT);
+        $userid = clean_param($args['userid'] ?? 0, PARAM_INT);
+
+        if ($workid <= 0 || $userid <= 0 || $type === '') {
+            return '<div class="alert alert-danger">Missing required parameters</div>';
+        }
+
+        $cm = get_coursemodule_from_id('assign', $workid, 0, false, MUST_EXIST);
+        $course = get_course($cm->course);
+
+        // require_login без установки $PAGE — контекст уже установлен Moodle
+        require_login($course, true, $cm);
+
+        if (!block_mark_manager_user_can_access((int)$cm->course)) {
+            return '<div class="alert alert-warning">' .
+                   get_string('nopermissions', 'error', 'grade submissions') . '</div>';
+        }
+
+        block_mark_manager_register_handlers();
+        $registry = submission_handler_registry::instance();
+        $handler = $registry->get_handler($type);
+
+        if ($handler === null) {
+            return '<div class="alert alert-danger">Unknown type: ' . s($type) . '</div>';
+        }
+
+        $templatename = $handler->get_grading_template_name();
+        $templatecontext = $handler->get_grading_template_context($workid, $userid);
+
+        $templatecontext['typeidentifier'] = $type;
+        $templatecontext['workid'] = $workid;
+        $templatecontext['userid'] = $userid;
+
+        return $OUTPUT->render_from_template($templatename, $templatecontext);
+
+    } catch (Exception $e) {
+        return '<div class="alert alert-danger"><strong>Error:</strong> ' . s($e->getMessage()) . '</div>';
+    } catch (Error $e) {
+        return '<div class="alert alert-danger"><strong>Fatal:</strong> ' . s($e->getMessage()) . '</div>';
     }
-
-    $cm = $DB->get_record('course_modules', ['id' => $workid], 'course', MUST_EXIST);
-    $courseid = (int) $cm->course;
-
-    $course = get_course($courseid);
-    require_login($course);
-
-    block_mark_manager_register_handlers();
-
-    if (!block_mark_manager_user_can_access($courseid)) {
-        throw new \moodle_exception('nopermissions', 'error', '', 'grade submissions');
-    }
-
-    $registry = submission_handler_registry::instance();
-    $handler = $registry->get_handler($type);
-
-    if ($handler === null) {
-        throw new \moodle_exception('error', '', '', get_string('unknownsubmissiontype', 'block_mark_manager', $type));
-    }
-
-    $templatename = $handler->get_grading_template_name();
-    $context = $handler->get_grading_template_context($workid, $userid);
-
-    $context['typeidentifier'] = $type;
-    $context['workid'] = $workid;
-    $context['userid'] = $userid;
-
-    $html = $OUTPUT->render_from_template($templatename, $context);
-
-    return ['content' => $html];
 }

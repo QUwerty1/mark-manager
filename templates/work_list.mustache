@@ -1,5 +1,3 @@
-{{! @template block_mark_manager/work_list }}
-
 <div class="block-mark-manager-worklist">
     {{#works}}
         <div class="mm-work-item list-group-item d-flex justify-content-between align-items-center"
@@ -10,18 +8,27 @@
                 <span class="mm-work-student font-weight-bold">{{studentname}}</span>
                 <span class="mm-work-name d-block text-muted small">{{workname}}</span>
                 {{#duedate}}
-                    <span class="mm-work-due d-block text-muted small">{{#userdate}} {{duedate}}, {{#str}} strftimedate, core {{/str}} {{/userdate}}</span>
+                    <span class="mm-work-due d-block text-muted small">
+                        {{#userdate}} {{duedate}}, %d %B %Y {{/userdate}}
+                    </span>
                 {{/duedate}}
             </div>
             <div class="mm-work-actions d-flex align-items-center">
-                <span class="mm-work-status badge badge-pill rounded-pill mr-2
-                    {{#status_ungraded}}badge-warning{{/status_ungraded}}
-                    {{#status_unsubmitted}}badge-danger{{/status_unsubmitted}}
-                    {{#status_graded}}badge-success{{/status_graded}}">
-                    {{#status_ungraded}}{{#str}}status_ungraded, block_mark_manager{{/str}}{{/status_ungraded}}
-                    {{#status_unsubmitted}}{{#str}}status_unsubmitted, block_mark_manager{{/str}}{{/status_unsubmitted}}
-                    {{#status_graded}}{{#str}}status_graded, block_mark_manager{{/str}}{{/status_graded}}
-                </span>
+                {{#status_ungraded}}
+                    <span class="mm-work-status badge badge-pill rounded-pill mr-2 badge-warning">
+                        {{#str}}status_ungraded, block_mark_manager{{/str}}
+                    </span>
+                {{/status_ungraded}}
+                {{#status_unsubmitted}}
+                    <span class="mm-work-status badge badge-pill rounded-pill mr-2 badge-danger">
+                        {{#str}}status_unsubmitted, block_mark_manager{{/str}}
+                    </span>
+                {{/status_unsubmitted}}
+                {{#status_graded}}
+                    <span class="mm-work-status badge badge-pill rounded-pill mr-2 badge-success">
+                        {{#str}}status_graded, block_mark_manager{{/str}}
+                    </span>
+                {{/status_graded}}
                 <button type="button" class="btn btn-primary btn-sm mm-grade-btn"
                         data-type="{{typeidentifier}}"
                         data-workid="{{workid}}"

@@ -1,29 +1,5 @@
-// This file is part of Moodle - https://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
-
 /**
  * Графический модуль блока "Менеджер оценивания".
- *
- * Открывает единое модальное окно с тремя областями:
- *  - сверху: фильтры (имя студента, статус работы);
- *  - слева: список работ (фрагмент work_list);
- *  - справа: фрагмент оценивания выбранной работы (grade_work).
- *
- * Ссылки блока открывают модальное окно с предустановленным фильтром статуса.
- * Сохранение оценки выполняется через веб-сервис save_submission_grade и
- * обновляет левый список работ.
  *
  * @module block_mark_manager/modal
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
@@ -36,7 +12,7 @@ define([
     "core/notification",
     "core/modal_factory",
     "core/templates",
-    "core/str",
+    "core/str"
 ], function ($, Ajax, Fragment, Notification, ModalFactory, Templates, Str) {
     "use strict";
 
@@ -44,62 +20,69 @@ define([
     var modalPromise = null;
     var currentFilters = { status: "", student: "" };
 
-    /**
-     * Возвращает (лениво создавая) единственный экземпляр модального окна.
-     *
-     * @return {Promise} Промис с экземпляром модального окна.
-     */
     var getModal = function () {
         if (modalPromise === null) {
             modalPromise = ModalFactory.create({
-                large: true,
-            })
-                .then(function (modal) {
-                    modal.setTitle(Str.get_string("opengrading", "block_mark_manager"));
-                    return Templates.render("block_mark_manager/modal_body", {}).then(
-                        function (body) {
-                            modal.setBody(body);
-                            return modal;
-                        },
-                    );
-                })
-                .fail(function (ex) {
-                    modalPromise = null;
-                    Notification.exception(ex);
+                large: true
+            }).then(function (modal) {
+                return Str.get_string("opengrading", "block_mark_manager").then(function (title) {
+                    modal.setTitle(title);
+                    return Templates.render("block_mark_manager/modal_body", {}).then(function (body) {
+                        modal.setBody(body);
+                        return modal;
+                    });
                 });
+            }).fail(Notification.exception);
         }
         return modalPromise;
     };
 
-    /**
-     * Загружает левый список работ через фрагмент work_list с учётом фильтров.
-     *
-     * @return {Promise}
-     */
     var loadList = function () {
+        console.log("=== LOAD LIST CALLED ===");
+        console.log("Course ID:", courseid);
+        console.log("Filters:", currentFilters);
+        console.log("Context ID:", M.cfg.contextid);
+
+        // Показываем индикатор загрузки
+        $(".mm-modal-list").html('<div class="text-center p-3"><i class="fa fa-spinner fa-spin"></i> Загрузка...</div>');
+
         return Fragment.loadFragment(
             "block_mark_manager",
             "work_list",
             M.cfg.contextid,
             {
                 courseid: courseid,
-                filters: JSON.stringify(currentFilters),
-            },
-        )
-            .then(function (html) {
-                $(".mm-modal-list").html(html);
-            })
-            .fail(Notification.exception);
+                filters: JSON.stringify(currentFilters)
+            }
+        ).then(function (html, js) {
+            console.log("=== FRAGMENT RESPONSE ===");
+            console.log("HTML length:", html ? html.length : 0);
+            console.log("HTML preview:", html ? html.substring(0, 500) : 'NULL');
+            console.log("Full HTML:", html);
+            console.log("JS:", js);
+
+            if (!html || html.length === 0) {
+                $(".mm-modal-list").html('<div class="alert alert-danger">Фрагмент вернул пустой ответ</div>');
+                return;
+            }
+
+            $(".mm-modal-list").html(html);
+
+            // Выполняем JS, если он есть
+            if (js) {
+                Templates.runTemplateJS(js);
+            }
+        }).fail(function (error) {
+            console.error("=== FRAGMENT ERROR ===", error);
+            $(".mm-modal-list").html(
+                '<div class="alert alert-danger">' +
+                '<strong>Ошибка загрузки:</strong> ' + (error.message || error) +
+                '</div>'
+            );
+            Notification.exception(error);
+        });
     };
 
-    /**
-     * Загружает правую область оценивания через фрагмент grade_work.
-     *
-     * @param {string} type Идентификатор типа работы.
-     * @param {int} workid Идентификатор экземпляра (cmid).
-     * @param {int} userid Идентификатор студента.
-     * @return {Promise}
-     */
     var loadGrade = function (type, workid, userid) {
         return Fragment.loadFragment(
             "block_mark_manager",
@@ -108,32 +91,16 @@ define([
             {
                 type: type,
                 workid: workid,
-                userid: userid,
-            },
-        )
-            .then(function (html) {
-                $(".mm-modal-grade").html(html);
-                wireFormSubmit(type, workid, userid);
-                // Подсвечиваем выбранный элемент в списке.
-                $(".mm-work-item").removeClass("mm-selected");
-                $(
-                    '.mm-work-item[data-workid="' +
-                    workid +
-                    '"][data-userid="' +
-                    userid +
-                    '"]',
-                ).addClass("mm-selected");
-            })
-            .fail(Notification.exception);
+                userid: userid
+            }
+        ).then(function (html) {
+            $(".mm-modal-grade").html(html);
+            wireFormSubmit(type, workid, userid);
+            $(".mm-work-item").removeClass("mm-selected");
+            $('.mm-work-item[data-workid="' + workid + '"][data-userid="' + userid + '"]').addClass("mm-selected");
+        }).fail(Notification.exception);
     };
 
-    /**
-     * Привязывает перехват отправки формы оценивания в правой области.
-     *
-     * @param {string} type Идентификатор типа работы.
-     * @param {int} workid Идентификатор экземпляра (cmid).
-     * @param {int} userid Идентификатор студента.
-     */
     var wireFormSubmit = function (type, workid, userid) {
         var $form = $(".mm-modal-grade").find("form.mm-grade-form");
         if (!$form.length) {
@@ -163,79 +130,54 @@ define([
         });
     };
 
-    /**
-     * Вызывает веб-сервис сохранения оценки и обновляет левый список.
-     *
-     * @param {string} type Идентификатор типа работы.
-     * @param {int} workid Идентификатор экземпляра (cmid).
-     * @param {int} userid Идентификатор студента.
-     * @param {string} grade Оценка.
-     * @param {string} feedback Комментарий.
-     * @param {Object} options Дополнительные данные (например, marks).
-     */
     var saveGrade = function (type, workid, userid, grade, feedback, options) {
-        Ajax.call([
-            {
-                methodname: "block_mark_manager_save_submission_grade",
-                args: {
-                    type: type,
-                    workid: workid,
-                    userid: userid,
-                    grade: parseFloat(grade),
-                    feedback: feedback,
-                    options: JSON.stringify(options),
-                },
-            },
-        ])[0]
-            .then(function (result) {
-                if (result && result.success) {
+        Ajax.call([{
+            methodname: "block_mark_manager_save_submission_grade",
+            args: {
+                type: type,
+                workid: workid,
+                userid: userid,
+                grade: parseFloat(grade),
+                feedback: feedback,
+                options: JSON.stringify(options)
+            }
+        }])[0].then(function (result) {
+            if (result && result.success) {
+                return Str.get_string("gradesaved", "block_mark_manager").then(function (msg) {
                     Notification.addNotification({
-                        message: Str.get_string("gradesaved", "block_mark_manager"),
-                        type: "success",
+                        message: msg,
+                        type: "success"
                     });
                     loadList();
-                } else {
+                    return;
+                });
+            } else {
+                return Str.get_string("gradeerror", "block_mark_manager").then(function (msg) {
                     Notification.addNotification({
-                        message: Str.get_string("gradeerror", "block_mark_manager"),
-                        type: "error",
+                        message: msg,
+                        type: "error"
                     });
-                }
-            })
-            .fail(Notification.exception);
+                    return;
+                });
+            }
+        }).fail(Notification.exception);
     };
 
-    /**
-     * Открывает модальное окно с заданным предустановленным статусом.
-     *
-     * @param {string} status Предустановленный статус фильтра.
-     */
     var openModal = function (status) {
-        getModal()
-            .then(function (modal) {
-                currentFilters = { status: status || "", student: "" };
-                modal.getBody().find(".mm-filter-status").val(currentFilters.status);
-                modal.getBody().find(".mm-filter-student").val("");
+        getModal().then(function (modal) {
+            currentFilters = { status: status || "", student: "" };
+            modal.getBody().find(".mm-filter-status").val(currentFilters.status);
+            modal.getBody().find(".mm-filter-student").val("");
 
-                Str.get_string("selectsubmission", "block_mark_manager").then(
-                    function (msg) {
-                        modal
-                            .getBody()
-                            .find(".mm-modal-grade")
-                            .html('<div class="text-muted">' + msg + "</div>");
-                    },
-                );
-
+            return Str.get_string("selectsubmission", "block_mark_manager").then(function (msg) {
+                modal.getBody().find(".mm-modal-grade").html('<div class="text-muted">' + msg + "</div>");
                 modal.show();
                 loadList();
                 return modal;
-            })
-            .fail(Notification.exception);
+            });
+        }).fail(Notification.exception);
     };
-    /**
-     * Инициализация модуля.
-     *
-     * @param {int} cid Идентификатор курса.
-     */
+
     var init = function (cid) {
         courseid = cid;
 
@@ -254,6 +196,7 @@ define([
             currentFilters.status = $(this).val();
             loadList();
         });
+
         $(document).on("input", ".mm-filter-student", function () {
             currentFilters.student = $(this).val();
             loadList();
@@ -261,6 +204,6 @@ define([
     };
 
     return {
-        init: init,
+        init: init
     };
 });

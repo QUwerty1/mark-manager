@@ -21,6 +21,9 @@
  * несданных и проверенных работ, формирование списка работ, а также
  * получение контекста и сохранение оценки для Mustache-шаблона оценивания.
  *
+ * Логика подсчета адаптирована из проекта ned-code/moodle-block_marking_manager
+ * с оптимизацией для Moodle 3.9+ и исключением удаленных модулей.
+ *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -29,6 +32,10 @@
 namespace block_mark_manager\local\submission_handlers;
 
 use stdClass;
+use context_course;
+use context_module;
+use moodle_url;
+use core_user;
 use block_mark_manager\local\submission_handlers\submission_data;
 use block_mark_manager\local\submission_handlers\submission_handler_interface;
 
@@ -36,6 +43,7 @@ use block_mark_manager\local\submission_handlers\submission_handler_interface;
  * Обработчик заданий (assign).
  */
 class assign_handler implements submission_handler_interface {
+    
     /**
      * Возвращает идентификатор типа.
      *
@@ -47,64 +55,83 @@ class assign_handler implements submission_handler_interface {
 
     /**
      * Количество непроверенных (сданных, но без оценки) заданий в курсе.
+     * 
+     * Логика из block_fn_marking:
+     * - Статус 'submitted'
+     * - Оценка отсутствует (NULL или -1) ИЛИ оценка старше чем сдача (была пересдача)
+     * - Только последняя попытка (latest = 1)
+     * - Исключены удаленные модули
      *
      * @param int $courseid
      * @return int
      */
     public function get_ungraded_count(int $courseid): int {
-        global $CFG, $DB;
-        require_once($CFG->dirroot . '/mod/assign/locallib.php');
+        global $DB;
 
-        $count = 0;
-        $assigns = $DB->get_records('assign', ['course' => $courseid]);
+        $sql = "SELECT COUNT(DISTINCT s.id)
+                  FROM {assign} a
+                  JOIN {course_modules} cm ON cm.instance = a.id AND cm.course = a.course
+                  JOIN {modules} m ON m.id = cm.module AND m.name = 'assign'
+                  JOIN {assign_submission} s ON s.assignment = a.id
+             LEFT JOIN {assign_grades} g ON g.assignment = a.id 
+                                          AND g.userid = s.userid 
+                                          AND g.attemptnumber = s.attemptnumber
+                 WHERE a.course = :courseid
+                   AND cm.deletioninprogress = 0
+                   AND s.status = 'submitted'
+                   AND s.latest = 1
+                   AND ((g.grade IS NULL OR g.grade = -1) OR g.timemodified < s.timemodified)";
 
-        foreach ($assigns as $assignrecord) {
-            $cm = get_coursemodule_from_instance('assign', $assignrecord->id, $courseid);
-            if (!$cm) {
-                continue;
-            }
-
-            $context = \context_module::instance($cm->id);
-            $assign = new \assign($context, $cm, $cm->course);
-
-            $count += $assign->count_submissions_need_grading();
-        }
-
-        return $count;
+        return (int) $DB->count_records_sql($sql, ['courseid' => $courseid]);
     }
 
     /**
-     * Количество несданных заданий (статус new/draft) в курсе.
+     * Количество несданных заданий в курсе.
+     * 
+     * Логика из block_fn_marking:
+     * - Количество зачисленных студентов минус количество сдавших
+     * - Сдавшие: статус 'submitted'
+     * - Исключены удаленные модули
      *
      * @param int $courseid
      * @return int
      */
     public function get_unsubmitted_count(int $courseid): int {
-        global $CFG, $DB;
-        require_once($CFG->dirroot . '/mod/assign/locallib.php');
+        global $DB;
 
-        $count = 0;
-        $assigns = $DB->get_records('assign', ['course' => $courseid]);
+        $coursecontext = context_course::instance($courseid);
+        list($esql, $params) = get_enrolled_sql($coursecontext);
 
-        foreach ($assigns as $assignrecord) {
-            $cm = get_coursemodule_from_instance('assign', $assignrecord->id, $courseid);
-            if (!$cm) {
-                continue;
-            }
+        $sql = "SELECT COUNT(DISTINCT u.id)
+                  FROM {user} u
+                  JOIN ($esql) eu ON eu.id = u.id
+                  JOIN {assign} a ON a.course = :courseid
+                  JOIN {course_modules} cm ON cm.instance = a.id AND cm.course = a.course
+                  JOIN {modules} m ON m.id = cm.module AND m.name = 'assign'
+                 WHERE u.deleted = 0
+                   AND cm.deletioninprogress = 0
+                   AND NOT EXISTS (
+                       SELECT 1
+                         FROM {assign_submission} s
+                        WHERE s.assignment = a.id
+                          AND s.userid = u.id
+                          AND s.status = 'submitted'
+                          AND s.latest = 1
+                   )";
 
-            $context = \context_module::instance($cm->id);
-            $assign = new \assign($context, $cm, $cm->course);
+        $params['courseid'] = $courseid;
 
-            $totalparticipants = $assign->count_participants(0);
-            $submittedcount = $assign->count_submissions(0, 0, 0, 'submitted');
-            $count += ($totalparticipants - $submittedcount);
-        }
-
-        return $count;
+        return (int) $DB->count_records_sql($sql, $params);
     }
 
     /**
      * Количество уже проверенных (оценённых) заданий в курсе.
+     * 
+     * Логика из block_fn_marking:
+     * - Статус 'submitted', 'resub', 'new' или 'draft' с оценкой новее сдачи
+     * - Оценка есть и не равна -1
+     * - Только последняя попытка
+     * - Исключены удаленные модули
      *
      * @param int $courseid
      * @return int
@@ -112,91 +139,138 @@ class assign_handler implements submission_handler_interface {
     public function get_graded_count(int $courseid): int {
         global $DB;
 
-        $sql = "SELECT COUNT(DISTINCT g.id)
+        $sql = "SELECT COUNT(DISTINCT s.id)
                   FROM {assign} a
-                  JOIN {assign_grades} g ON g.assignment = a.id
+                  JOIN {course_modules} cm ON cm.instance = a.id AND cm.course = a.course
+                  JOIN {modules} m ON m.id = cm.module AND m.name = 'assign'
+                  JOIN {assign_submission} s ON s.assignment = a.id
+                  JOIN {assign_grades} g ON g.assignment = a.id 
+                                         AND g.userid = s.userid 
+                                         AND g.attemptnumber = s.attemptnumber
                  WHERE a.course = :courseid
-                   AND g.grade IS NOT NULL
-                   AND g.grade >= 0
-                   AND g.attemptnumber = (
-                       SELECT MAX(s.attemptnumber)
-                         FROM {assign_submission} s
-                        WHERE s.assignment = a.id
-                          AND s.userid = g.userid
+                   AND cm.deletioninprogress = 0
+                   AND s.latest = 1
+                   AND (
+                       (s.status IN ('submitted', 'resub', 'new') 
+                        AND g.grade IS NOT NULL AND g.grade <> -1)
+                       OR
+                       (s.status = 'draft' 
+                        AND g.grade IS NOT NULL AND g.grade <> -1 
+                        AND g.timemodified > s.timemodified)
                    )";
 
         return (int) $DB->count_records_sql($sql, ['courseid' => $courseid]);
     }
 
-    /**
+        /**
      * Возвращает список работ (заданий) для блока.
-     *
-     * Включает непроверенные (submitted) и несданные (new/draft) работы.
      *
      * @param int $courseid
      * @param array $filters
      * @return submission_data[]
      */
     public function get_works_list(int $courseid, array $filters): array {
-        global $CFG, $DB;
-        require_once($CFG->dirroot . '/mod/assign/locallib.php');
+        global $DB;
+
+        $coursecontext = \context_course::instance($courseid);
+        list($esql, $params) = get_enrolled_sql($coursecontext);
+
+        $sql = "SELECT u.id AS userid, u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic, u.middlename, u.alternatename,
+                       a.id AS assignid, a.name AS assignname, a.duedate,
+                       s.id AS submissionid, s.status AS submissionstatus, s.timemodified AS subtimemodified,
+                       g.grade, g.timemodified AS gradetimemodified
+                  FROM {user} u
+                  JOIN ($esql) eu ON eu.id = u.id
+                  JOIN {assign} a ON a.course = :courseid
+                  JOIN {course_modules} cm ON cm.instance = a.id AND cm.course = a.course
+                  JOIN {modules} m ON m.id = cm.module AND m.name = 'assign'
+             LEFT JOIN {assign_submission} s ON s.assignment = a.id AND s.userid = u.id AND s.latest = 1
+             LEFT JOIN {assign_grades} g ON g.assignment = a.id AND g.userid = u.id AND g.attemptnumber = s.attemptnumber
+                 WHERE u.deleted = 0
+                   AND cm.deletioninprogress = 0";
+
+        $params['courseid'] = $courseid;
+
+        $records = $DB->get_records_sql($sql, $params);
+
+        $modinfo = get_fast_modinfo($courseid);
+        $assigncms = [];
+        foreach ($modinfo->get_instances_of('assign') as $cm) {
+            if ($cm->deletioninprogress) {
+                continue;
+            }
+            $assigncms[$cm->instance] = $cm->id;
+        }
+        
+        if (empty($assigncms)) {
+            $cms = get_coursemodules_in_course('assign', $courseid);
+            foreach ($cms as $cm) {
+                if (!empty($cm->deletioninprogress)) {
+                    continue;
+                }
+                $assigncms[$cm->instance] = $cm->id;
+            }
+        }
 
         $works = [];
-        $assigns = $DB->get_records('assign', ['course' => $courseid]);
+        foreach ($records as $r) {
+            if (!isset($assigncms[$r->assignid])) {
+                continue;
+            }
+            $cmid = $assigncms[$r->assignid];
 
-        foreach ($assigns as $assignrecord) {
-            $cm = get_coursemodule_from_instance('assign', $assignrecord->id, $courseid);
-            if (!$cm) {
+            $status = null;
+            $gradeval = ($r->grade !== null && $r->grade !== '' && $r->grade != -1) ? (float)$r->grade : null;
+
+            // === ИСПРАВЛЕННАЯ ЛОГИКА СТАТУСОВ ===
+            if ($r->submissionstatus === 'submitted') {
+                // Работа сдана
+                if ($gradeval === null || $gradeval < 0 || 
+                    ($r->gradetimemodified !== null && $r->subtimemodified !== null && $r->gradetimemodified < $r->subtimemodified)) {
+                    $status = 'ungraded';  // Сдана, но не оценена
+                } else {
+                    $status = 'graded';    // Сдана и оценена
+                }
+            } else {
+                // Работа не сдана (draft, new или отсутствует)
+                $status = 'unsubmitted';
+            }
+
+            // Фильтрация по статусу
+            if (!empty($filters['status']) && $filters['status'] !== $status) {
                 continue;
             }
 
-            $context = \context_module::instance($cm->id);
-            $assign = new \assign($context, $cm, $cm->course);
-
-            $enrolledusers = get_enrolled_users($context, '', 0, 'u.*', null, 0, 0, true);
-
-            foreach ($enrolledusers as $user) {
-                if (!empty($user->deleted) || !empty($user->suspended)) {
+            $userobj = new \stdClass();
+            $userobj->id = $r->userid;
+            $userobj->firstname = $r->firstname;
+            $userobj->lastname = $r->lastname;
+            $userobj->firstnamephonetic = $r->firstnamephonetic ?? '';
+            $userobj->lastnamephonetic = $r->lastnamephonetic ?? '';
+            $userobj->middlename = $r->middlename ?? '';
+            $userobj->alternatename = $r->alternatename ?? '';
+            
+            $fullname = fullname($userobj);
+            if (!empty($filters['studentname'])) {
+                if (stripos($fullname, $filters['studentname']) === false) {
                     continue;
                 }
-
-                $submission = $assign->get_user_submission($user->id, false);
-                $grade = $assign->get_user_grade($user->id, false);
-
-                $status = null;
-                if (!$submission || $submission->status !== ASSIGN_SUBMISSION_STATUS_SUBMITTED) {
-                    $status = 'unsubmitted';
-                } else if (!$grade || $grade->grade < 0) {
-                    $status = 'ungraded';
-                } else {
-                    continue;
-                }
-
-                if (!empty($filters['status']) && $filters['status'] !== $status) {
-                    continue;
-                }
-                if (!empty($filters['studentname'])) {
-                    $fullname = fullname($user);
-                    if (stripos($fullname, $filters['studentname']) === false) {
-                        continue;
-                    }
-                }
-
-                $works[] = new submission_data(
-                    $this->get_type_identifier(),
-                    $cm->id,
-                    $user->id,
-                    fullname($user),
-                    $assignrecord->name,
-                    $assignrecord->duedate,
-                    $status,
-                    $grade ? (float)$grade->grade : null,
-                    [
-                        'submissionid' => $submission ? (int)$submission->id : 0,
-                        'assignmentid' => (int)$assignrecord->id,
-                    ]
-                );
             }
+
+            $works[] = new submission_data(
+                $this->get_type_identifier(),
+                $cmid,
+                (int)$r->userid,
+                $fullname,
+                $r->assignname,
+                (int)$r->duedate,
+                $status,
+                $gradeval,
+                [
+                    'submissionid' => $r->submissionid !== null ? (int)$r->submissionid : 0,
+                    'assignmentid' => (int)$r->assignid,
+                ]
+            );
         }
 
         usort($works, function (submission_data $a, submission_data $b): int {
@@ -226,25 +300,31 @@ class assign_handler implements submission_handler_interface {
      * @return array
      */
     public function get_grading_template_context(int $workid, int $userid): array {
-        global $CFG;
+        global $CFG, $DB;
 
         require_once($CFG->dirroot . '/mod/assign/locallib.php');
 
         $cm = get_coursemodule_from_id('assign', $workid, 0, false, MUST_EXIST);
-        $context = \context_module::instance($cm->id);
+        $context = context_module::instance($cm->id);
         $assign = new \assign($context, $cm, $cm->course);
 
         $instance = $assign->get_instance();
-        $submission = $assign->get_user_submission($userid, false);
-        $grade = $assign->get_user_grade($userid, false);
+        $submission = $assign->get_user_submission($userid, true);
+        $grade = $assign->get_user_grade($userid, true);
 
         $submissiontext = '';
         $files = [];
 
         if ($submission) {
-            $onlinetextplugin = $assign->get_submission_plugin_by_type('onlinetext');
-            if ($onlinetextplugin) {
-                $submissiontext = $onlinetextplugin->get_summary($submission);
+            $onlinetext = $DB->get_record('assignsubmission_onlinetext', [
+                'assignment' => $instance->id,
+                'submission' => $submission->id
+            ]);
+            if ($onlinetext) {
+                $submissiontext = format_text($onlinetext->onlinetext, $onlinetext->onlineformat, [
+                    'context' => $context,
+                    'noclean' => true
+                ]);
             }
 
             $fs = get_file_storage();
@@ -260,7 +340,7 @@ class assign_handler implements submission_handler_interface {
             foreach ($areafiles as $file) {
                 $files[] = [
                     'filename' => $file->get_filename(),
-                    'url' => \moodle_url::make_pluginfile_url(
+                    'url' => moodle_url::make_pluginfile_url(
                         $file->get_contextid(),
                         $file->get_component(),
                         $file->get_filearea(),
@@ -273,7 +353,7 @@ class assign_handler implements submission_handler_interface {
             }
         }
 
-        $user = \core_user::get_user($userid);
+        $user = core_user::get_user($userid);
 
         return [
             'studentname' => fullname($user),
@@ -289,18 +369,25 @@ class assign_handler implements submission_handler_interface {
      * Сохраняет оценку и комментарий для задания.
      */
     public function save_grade(int $workid, int $userid, float $grade, string $feedback, array $options = []): bool {
-        global $CFG;
+        global $CFG, $USER, $DB;
 
         require_once($CFG->dirroot . '/mod/assign/locallib.php');
 
         $cm = get_coursemodule_from_id('assign', $workid, 0, false, MUST_EXIST);
-        $context = \context_module::instance($cm->id);
+        $context = context_module::instance($cm->id);
         $assign = new \assign($context, $cm, $cm->course);
 
+        $submission = $assign->get_user_submission($userid, true);
+        
         $data = new stdClass();
         $data->grade = $grade;
-        $data->feedback = $feedback;
-        $data->feedbackformat = FORMAT_HTML;
+        $data->attemptnumber = $submission ? $submission->attemptnumber : -1;
+        
+        $data->assignfeedbackcomments_editor = [
+            'text' => $feedback,
+            'format' => FORMAT_HTML,
+            'itemid' => 0
+        ];
 
         $assign->save_grade($userid, $data);
 
