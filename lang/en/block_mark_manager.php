@@ -94,3 +94,15 @@ $string['noquestions'] = 'No questions require manual grading.';
 
 $string['unknownfragment'] = 'Unknown fragment name "{$a}".';
 $string['test_message'] = 'Test message';
+
+$string['duedate'] = 'Due date';
+$string['submissiontext'] = 'Submission';
+$string['nosubmissiontext'] = 'No text submission provided';
+$string['attachedfiles'] = 'Attached files';
+$string['nofiles'] = 'No files attached';
+$string['gradevalue'] = 'Grade';
+$string['graderange'] = 'Allowed range: {$a->min} – {$a->max}';
+$string['feedback'] = 'Feedback';
+$string['feedbackplaceholder'] = 'Enter feedback for the student (optional)';
+$string['savegrade'] = 'Save grade';
+$string['openfullgrading'] = 'Open full grading page';

@@ -222,21 +222,17 @@ class assign_handler implements submission_handler_interface {
             $status = null;
             $gradeval = ($r->grade !== null && $r->grade !== '' && $r->grade != -1) ? (float)$r->grade : null;
 
-            // === ИСПРАВЛЕННАЯ ЛОГИКА СТАТУСОВ ===
             if ($r->submissionstatus === 'submitted') {
-                // Работа сдана
                 if ($gradeval === null || $gradeval < 0 || 
                     ($r->gradetimemodified !== null && $r->subtimemodified !== null && $r->gradetimemodified < $r->subtimemodified)) {
-                    $status = 'ungraded';  // Сдана, но не оценена
+                    $status = 'ungraded';
                 } else {
-                    $status = 'graded';    // Сдана и оценена
+                    $status = 'graded';
                 }
             } else {
-                // Работа не сдана (draft, new или отсутствует)
                 $status = 'unsubmitted';
             }
 
-            // Фильтрация по статусу
             if (!empty($filters['status']) && $filters['status'] !== $status) {
                 continue;
             }
@@ -305,7 +301,7 @@ class assign_handler implements submission_handler_interface {
         require_once($CFG->dirroot . '/mod/assign/locallib.php');
 
         $cm = get_coursemodule_from_id('assign', $workid, 0, false, MUST_EXIST);
-        $context = context_module::instance($cm->id);
+        $context = \context_module::instance($cm->id);
         $assign = new \assign($context, $cm, $cm->course);
 
         $instance = $assign->get_instance();
@@ -313,18 +309,22 @@ class assign_handler implements submission_handler_interface {
         $grade = $assign->get_user_grade($userid, true);
 
         $submissiontext = '';
+        $hassubmissiontext = false;
         $files = [];
+        $hasfiles = false;
 
         if ($submission) {
             $onlinetext = $DB->get_record('assignsubmission_onlinetext', [
                 'assignment' => $instance->id,
-                'submission' => $submission->id
+                'submission' => $submission->id,
             ]);
-            if ($onlinetext) {
+            if ($onlinetext && trim(strip_tags($onlinetext->onlinetext)) !== '') {
                 $submissiontext = format_text($onlinetext->onlinetext, $onlinetext->onlineformat, [
                     'context' => $context,
-                    'noclean' => true
+                    'noclean' => true,
+                    'para' => false,
                 ]);
+                $hassubmissiontext = true;
             }
 
             $fs = get_file_storage();
@@ -338,9 +338,10 @@ class assign_handler implements submission_handler_interface {
             );
 
             foreach ($areafiles as $file) {
+                $hasfiles = true;
                 $files[] = [
                     'filename' => $file->get_filename(),
-                    'url' => moodle_url::make_pluginfile_url(
+                    'url' => \moodle_url::make_pluginfile_url(
                         $file->get_contextid(),
                         $file->get_component(),
                         $file->get_filearea(),
@@ -353,15 +354,41 @@ class assign_handler implements submission_handler_interface {
             }
         }
 
-        $user = core_user::get_user($userid);
+        $user = \core_user::get_user($userid);
+
+        if ($instance->grade > 0) {
+            $maxgrade = (float)$instance->grade;
+        } else {
+            $maxgrade = 100.0;
+        }
+        $mingrade = 0.0;
+
+        $duedateformatted = '';
+        if (!empty($instance->duedate)) {
+            $duedateformatted = userdate($instance->duedate, get_string('strftimedaydatetime', 'core_langconfig'));
+        }
+
+        $gradingurl = new \moodle_url('/mod/assign/view.php', [
+            'id' => $workid,
+            'action' => 'grader',
+            'userid' => $userid,
+        ]);
 
         return [
             'studentname' => fullname($user),
             'workname' => $instance->name,
-            'duedate' => $instance->duedate,
+            'duedate' => (int)$instance->duedate,
+            'duedateformatted' => $duedateformatted,
+            'hasduedate' => !empty($instance->duedate),
             'grade' => $grade ? (float)$grade->grade : null,
+            'hasgrade' => $grade !== null && $grade->grade !== null && $grade->grade >= 0,
+            'mingrade' => $mingrade,
+            'maxgrade' => $maxgrade,
             'submissiontext' => $submissiontext,
+            'hassubmissiontext' => $hassubmissiontext,
             'files' => $files,
+            'hasfiles' => $hasfiles,
+            'gradingurl' => $gradingurl->out(false),
         ];
     }
 

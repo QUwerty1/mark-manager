@@ -1,50 +1,98 @@
 {{! @template block_mark_manager/grading_assign }}
 
-<form class="mm-grade-form mm-grade-form-assign" data-type="{{typeidentifier}}" data-workid="{{workid}}" data-userid="{{userid}}">
-    <div class="mm-grade-header mb-3">
-        <h5 class="mm-student-name font-weight-bold">{{studentname}}</h5>
-        <div class="mm-work-name text-muted">{{workname}}</div>
-        {{#duedate}}
-            <div class="mm-due-date text-muted small">
-                {{#str}} duedate, block_mark_manager {{/str}}:
-                {{#userdate}} {{duedate}}, {{#str}} strftimedate, core {{/str}} {{/userdate}}
+<form class="mm-grade-form">
+    <div class="mm-grade-header mb-3 pb-3 border-bottom">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+            <h5 class="mb-0">{{studentname}}</h5>
+            <a href="{{gradingurl}}"
+               class="btn btn-outline-secondary btn-sm ml-2 flex-shrink-0"
+               title="{{#str}} openfullgrading, block_mark_manager {{/str}}">
+                <i class="fa fa-external-link mr-1"></i>
+                {{#str}} openfullgrading, block_mark_manager {{/str}}
+            </a>
+        </div>
+        <p class="text-muted mb-1">{{workname}}</p>
+        {{#hasduedate}}
+            <small class="text-muted">
+                <strong>{{#str}} duedate, block_mark_manager {{/str}}:</strong> {{duedateformatted}}
+            </small>
+        {{/hasduedate}}
+    </div>
+
+    <div class="mm-submission-block mb-3">
+        <h6 class="text-muted text-uppercase small font-weight-bold">
+            {{#str}} submissiontext, block_mark_manager {{/str}}
+        </h6>
+        {{#hassubmissiontext}}
+            <div class="mm-submission-text border rounded p-3 bg-light">
+                {{{submissiontext}}}
             </div>
-        {{/duedate}}
+        {{/hassubmissiontext}}
+        {{^hassubmissiontext}}
+            <div class="text-muted font-italic p-2">
+                {{#str}} nosubmissiontext, block_mark_manager {{/str}}
+            </div>
+        {{/hassubmissiontext}}
     </div>
 
-    <div class="mm-submission mb-3">
-        <h6>{{#str}} submissiontext, block_mark_manager {{/str}}</h6>
-        {{#submissiontext}}
-            <div class="mm-submission-text border rounded p-2 bg-light">{{submissiontext}}</div>
-        {{/submissiontext}}
-        {{^submissiontext}}
-            <div class="text-muted small">{{#str}} nosubmissiontext, block_mark_manager {{/str}}</div>
-        {{/submissiontext}}
-
-        <h6 class="mt-2">{{#str}} attachedfiles, block_mark_manager {{/str}}</h6>
-        {{#files}}
-            <ul class="mm-file-list list-unstyled">
-                <li><a href="{{url}}" target="_blank" rel="noopener">{{filename}}</a></li>
+    {{! === Блок прикреплённых файлов === }}
+    <div class="mm-files-block mb-3">
+        <h6 class="text-muted text-uppercase small font-weight-bold">
+            {{#str}} attachedfiles, block_mark_manager {{/str}}
+        </h6>
+        {{#hasfiles}}
+            <ul class="list-group">
+                {{#files}}
+                    <li class="list-group-item d-flex justify-content-between align-items-center p-2">
+                        <a href="{{url}}" target="_blank" class="text-break">
+                            <i class="fa fa-file mr-2"></i> {{filename}}
+                        </a>
+                        <span class="badge badge-light badge-pill">{{mimetype}}</span>
+                    </li>
+                {{/files}}
             </ul>
-        {{/files}}
-        {{^files}}
-            <div class="text-muted small">{{#str}} nofiles, block_mark_manager {{/str}}</div>
-        {{/files}}
+        {{/hasfiles}}
+        {{^hasfiles}}
+            <div class="text-muted font-italic p-2">
+                {{#str}} nofiles, block_mark_manager {{/str}}
+            </div>
+        {{/hasfiles}}
     </div>
 
-    <div class="form-group">
-        <label for="mm-grade-assign-{{workid}}-{{userid}}">{{#str}} gradevalue, block_mark_manager {{/str}}</label>
-        <input type="number" class="form-control" id="mm-grade-assign-{{workid}}-{{userid}}"
-               name="grade" step="0.01" min="0"
-               {{#grade}}value="{{grade}}"{{/grade}}>
-    </div>
+    {{! === Поля оценки и комментария === }}
+    <div class="mm-grading-block mt-4">
+        <div class="form-group">
+            <label for="mm-grade-input" class="font-weight-bold">
+                {{#str}} gradevalue, block_mark_manager {{/str}}
+            </label>
+            <input type="number"
+                   class="form-control"
+                   id="mm-grade-input"
+                   name="grade"
+                   min="{{mingrade}}"
+                   max="{{maxgrade}}"
+                   step="0.01"
+                   value="{{#hasgrade}}{{grade}}{{/hasgrade}}"
+                   placeholder="0 — {{maxgrade}}">
+            <small class="form-text text-muted">
+                {{#str}} graderange, block_mark_manager, {"min": "{{mingrade}}", "max": "{{maxgrade}}"} {{/str}}
+            </small>
+        </div>
 
-    <div class="form-group">
-        <label for="mm-feedback-assign-{{workid}}-{{userid}}">{{#str}} feedback, block_mark_manager {{/str}}</label>
-        <textarea class="form-control" id="mm-feedback-assign-{{workid}}-{{userid}}" name="feedback" rows="4"></textarea>
-    </div>
+        <div class="form-group">
+            <label for="mm-feedback-input" class="font-weight-bold">
+                {{#str}} feedback, block_mark_manager {{/str}}
+            </label>
+            <textarea class="form-control"
+                      id="mm-feedback-input"
+                      name="feedback"
+                      rows="4"
+                      placeholder="{{#str}} feedbackplaceholder, block_mark_manager {{/str}}"></textarea>
+        </div>
 
-    <div class="form-group mb-0 text-right">
-        <button type="submit" class="btn btn-primary">{{#str}} savegrade, block_mark_manager {{/str}}</button>
+        <button type="submit" class="btn btn-primary btn-block">
+            <i class="fa fa-save mr-1"></i>
+            {{#str}} savegrade, block_mark_manager {{/str}}
+        </button>
     </div>
 </form>

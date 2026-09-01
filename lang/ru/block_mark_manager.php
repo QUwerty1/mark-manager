@@ -75,3 +75,15 @@ $string['gradeerror'] = 'Не удалось сохранить оценку.';
 
 $string['unknownfragment'] = 'Неизвестное имя фрагмента "{$a}".';
 $string['test_message'] = 'Тестовое сообщение';
+
+$string['duedate'] = 'Срок сдачи';
+$string['submissiontext'] = 'Ответ студента';
+$string['nosubmissiontext'] = 'Текстовый ответ отсутствует';
+$string['attachedfiles'] = 'Прикреплённые файлы';
+$string['nofiles'] = 'Файлы не прикреплены';
+$string['gradevalue'] = 'Оценка';
+$string['graderange'] = 'Допустимый диапазон: {$a->min} – {$a->max}';
+$string['feedback'] = 'Комментарий';
+$string['feedbackplaceholder'] = 'Введите комментарий для студента (необязательно)';
+$string['savegrade'] = 'Сохранить оценку';
+$string['openfullgrading'] = 'Открыть страницу оценивания';

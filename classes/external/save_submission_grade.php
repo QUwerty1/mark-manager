@@ -29,19 +29,39 @@ namespace block_mark_manager\external;
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once($CFG->dirroot . '/lib/externallib.php');
-require_once($CFG->dirroot . '/blocks/mark_manager/lib.php');
+require_once("$CFG->libdir/externallib.php");
 
+use external_api;
+use external_function_parameters;
+use external_value;
+use external_single_structure;
+use context_module;
+use moodle_exception;
 use block_mark_manager\local\submission_handler_registry;
-use core_external\external_api;
-use core_external\external_function_parameters;
-use core_external\external_value;
-use core_external\external_single_structure;
+use block_mark_manager\local\submission_handlers\assign_handler;
+use block_mark_manager\local\submission_handlers\quiz_handler;
 
 /**
- * Веб-сервис сохранения оценки сдаваемой работы.
+ * Веб-сервис сохранения оценки.
  */
-class save_submission_grade extends \external_api {
+class save_submission_grade extends external_api {
+
+    /**
+     * Регистрация обработчиков типов работ в реестре.
+     * Дублирует логику из lib.php, потому что функция может быть недоступна
+     * в контексте внешнего веб-сервиса.
+     */
+    protected static function register_handlers(): void {
+        $registry = submission_handler_registry::instance();
+
+        if ($registry->get_handler('assign') === null) {
+            $registry->register(new assign_handler());
+        }
+        if ($registry->get_handler('quiz') === null) {
+            $registry->register(new quiz_handler());
+        }
+    }
+
     /**
      * Описание параметров веб-сервиса.
      *
@@ -49,29 +69,50 @@ class save_submission_grade extends \external_api {
      */
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'type' => new external_value(PARAM_ALPHANUMEXT, 'Submission type identifier (e.g. assign, quiz).'),
-            'workid' => new external_value(PARAM_INT, 'Course module instance id (cmid).'),
-            'userid' => new external_value(PARAM_INT, 'Student user id.'),
-            'grade' => new external_value(PARAM_FLOAT, 'New grade value.'),
-            'feedback' => new external_value(PARAM_TEXT, 'Feedback comment.', VALUE_DEFAULT, ''),
-            'options' => new external_value(
+            'type' => new external_value(
+                PARAM_ALPHANUMEXT,
+                'Тип работы (assign, quiz и т.д.)',
+                VALUE_REQUIRED
+            ),
+            'workid' => new external_value(
+                PARAM_INT,
+                'ID экземпляра модуля курса (cmid)',
+                VALUE_REQUIRED
+            ),
+            'userid' => new external_value(
+                PARAM_INT,
+                'ID студента',
+                VALUE_REQUIRED
+            ),
+            'grade' => new external_value(
+                PARAM_FLOAT,
+                'Оценка',
+                VALUE_REQUIRED
+            ),
+            'feedback' => new external_value(
                 PARAM_RAW,
-                'JSON-encoded associative array of type-specific extra data (e.g. per-question marks).',
+                'Комментарий (HTML)',
                 VALUE_DEFAULT,
                 ''
+            ),
+            'options' => new external_value(
+                PARAM_RAW,
+                'Дополнительные опции (JSON-строка)',
+                VALUE_DEFAULT,
+                '{}'
             ),
         ]);
     }
 
     /**
-     * Сохраняет оценку, маршрутизируя запрос к соответствующему обработчику.
+     * Выполнение сохранения оценки.
      *
-     * @param string $type Идентификатор типа работы.
-     * @param int $workid Идентификатор экземпляра (cmid).
-     * @param int $userid Идентификатор студента.
-     * @param float $grade Новая оценка.
-     * @param string $feedback Комментарий.
-     * @param string $optionsjson JSON-строка с дополнительными данными.
+     * @param string $type Тип работы
+     * @param int $workid cmid
+     * @param int $userid ID студента
+     * @param float $grade Оценка
+     * @param string $feedback Комментарий
+     * @param string $options JSON-строка с опциями
      * @return array ['success' => bool]
      */
     public static function execute(
@@ -80,56 +121,50 @@ class save_submission_grade extends \external_api {
         int $userid,
         float $grade,
         string $feedback = '',
-        string $optionsjson = ''
+        string $options = '{}'
     ): array {
         global $DB;
 
-        $params = self::validate_parameters(
-            self::execute_parameters(),
-            [
-                'type' => $type,
-                'workid' => $workid,
-                'userid' => $userid,
-                'grade' => $grade,
-                'feedback' => $feedback,
-                'options' => $optionsjson,
-            ]
-        );
+        $params = self::validate_parameters(self::execute_parameters(), [
+            'type' => $type,
+            'workid' => $workid,
+            'userid' => $userid,
+            'grade' => $grade,
+            'feedback' => $feedback,
+            'options' => $options,
+        ]);
 
-        // Resolve the course from the course module to set up the context.
-        $cm = $DB->get_record('course_modules', ['id' => $params['workid']], 'course', MUST_EXIST);
-        $courseid = (int) $cm->course;
+        $cm = get_coursemodule_from_id('', $params['workid'], 0, false, MUST_EXIST);
+        $context = context_module::instance($cm->id);
 
-        $context = \context_course::instance($courseid);
         self::validate_context($context);
         require_capability('block/mark_manager:grade', $context);
 
-        // Register handlers (singleton registry) and route to the correct handler.
-        block_mark_manager_register_handlers();
+        self::register_handlers();
+
         $registry = submission_handler_registry::instance();
         $handler = $registry->get_handler($params['type']);
 
         if ($handler === null) {
-            throw new \moodle_exception('unknownsubmissiontype', 'block_mark_manager', '', $params['type']);
+            throw new moodle_exception(
+                'unknownsubmissiontype',
+                'block_mark_manager',
+                '',
+                $params['type']
+            );
         }
 
-        $options = [];
-        if ($params['options'] !== '' && $params['options'] !== null) {
-            $decoded = @json_decode($params['options'], true);
-            if (is_array($decoded)) {
-                $options = $decoded;
-            }
-        }
+        $optionsarray = json_decode($params['options'], true) ?: [];
 
-        $result = $handler->save_grade(
+        $success = $handler->save_grade(
             $params['workid'],
             $params['userid'],
             $params['grade'],
             $params['feedback'],
-            $options
+            $optionsarray
         );
 
-        return ['success' => (bool) $result];
+        return ['success' => $success];
     }
 
     /**
@@ -139,7 +174,7 @@ class save_submission_grade extends \external_api {
      */
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
-            'success' => new external_value(PARAM_BOOL, 'Whether the grade was saved successfully.'),
+            'success' => new external_value(PARAM_BOOL, 'Успешность операции'),
         ]);
     }
 }
