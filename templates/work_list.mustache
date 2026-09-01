@@ -22,6 +22,9 @@
                     <div class="mm-work-info">
                         <span class="mm-work-student font-weight-bold">{{studentname}}</span>
                         <span class="mm-work-name d-block text-muted small">{{workname}}</span>
+                        {{#hasquestionpreview}}
+                            <span class="mm-work-question d-block text-muted small font-italic">{{questionpreview}}</span>
+                        {{/hasquestionpreview}}
                         {{#duedate}}
                             <span class="mm-work-due d-block text-muted small">
                                 {{#userdate}} {{duedate}}, %d %B %Y {{/userdate}}

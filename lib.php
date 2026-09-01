@@ -131,16 +131,27 @@ function block_mark_manager_output_fragment_work_list($args): string {
         // Подготавливаем данные для шаблона.
         $templateworks = [];
         foreach ($allworks as $work) {
+            $options = $work->options ?? [];
+
+            // Имя для группировки: для эссе — название квиза, для остальных — название работы.
+            $groupname = $options['quizname'] ?? $work->workname;
+
+            // Превью вопроса эссе (если есть).
+            $questionpreview = $options['questionpreview'] ?? '';
+
             $templateworks[] = [
                 'typeidentifier' => $work->typeidentifier,
                 'workid' => $work->workid,
                 'userid' => $work->userid,
                 'studentname' => $work->studentname,
                 'workname' => $work->workname,
+                'groupname' => $groupname,
                 'duedate' => $work->duedate,
                 'status' => $work->status,
                 'grade' => $work->grade,
-                'slot' => $work->options['slot'] ?? null,
+                'slot' => $options['slot'] ?? null,
+                'questionpreview' => $questionpreview,
+                'hasquestionpreview' => ($questionpreview !== ''),
                 'status_ungraded' => ($work->status === 'ungraded'),
                 'status_unsubmitted' => ($work->status === 'unsubmitted'),
                 'status_graded' => ($work->status === 'graded'),
@@ -189,8 +200,10 @@ function block_mark_manager_group_works(int $courseid, array $templateworks, str
 
     if ($groupby === 'assignment') {
         // Группировка по названию работы (задания/теста).
+        // Для эссе используется название квиза (поле 'groupname'),
+        // поэтому все эссе одного теста группируются вместе.
         foreach ($templateworks as $work) {
-            $key = $work['workname'];
+            $key = $work['groupname'];
             if (!isset($grouped[$key])) {
                 $grouped[$key] = [];
             }

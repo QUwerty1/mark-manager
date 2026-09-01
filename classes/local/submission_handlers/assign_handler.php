@@ -100,7 +100,8 @@ class assign_handler implements submission_handler_interface {
         global $DB;
 
         $coursecontext = context_course::instance($courseid);
-        list($esql, $params) = get_enrolled_sql($coursecontext);
+        // === ИСПРАВЛЕНИЕ: только пользователи с capability сдачи задания ===
+        list($esql, $params) = get_enrolled_sql($coursecontext, 'mod/assign:submit');
 
         $sql = "SELECT COUNT(DISTINCT u.id)
                   FROM {user} u
@@ -173,7 +174,8 @@ class assign_handler implements submission_handler_interface {
         global $DB;
 
         $coursecontext = \context_course::instance($courseid);
-        list($esql, $params) = get_enrolled_sql($coursecontext);
+        // === ИСПРАВЛЕНИЕ: только пользователи с capability сдачи задания ===
+        list($esql, $params) = get_enrolled_sql($coursecontext, 'mod/assign:submit');
 
         $sql = "SELECT u.id AS userid, u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic, u.middlename, u.alternatename,
                        a.id AS assignid, a.name AS assignname, a.duedate,
