@@ -1,44 +1,63 @@
+{{! @template block_mark_manager/work_list }}
+
 <div class="block-mark-manager-worklist">
-    {{#works}}
-        <div class="mm-work-item list-group-item d-flex justify-content-between align-items-center"
-             data-type="{{typeidentifier}}"
-             data-workid="{{workid}}"
-             data-userid="{{userid}}">
-            <div class="mm-work-info">
-                <span class="mm-work-student font-weight-bold">{{studentname}}</span>
-                <span class="mm-work-name d-block text-muted small">{{workname}}</span>
-                {{#duedate}}
-                    <span class="mm-work-due d-block text-muted small">
-                        {{#userdate}} {{duedate}}, %d %B %Y {{/userdate}}
-                    </span>
-                {{/duedate}}
-            </div>
-            <div class="mm-work-actions d-flex align-items-center">
-                {{#status_ungraded}}
-                    <span class="mm-work-status badge badge-pill rounded-pill mr-2 badge-warning">
-                        {{#str}}status_ungraded, block_mark_manager{{/str}}
-                    </span>
-                {{/status_ungraded}}
-                {{#status_unsubmitted}}
-                    <span class="mm-work-status badge badge-pill rounded-pill mr-2 badge-danger">
-                        {{#str}}status_unsubmitted, block_mark_manager{{/str}}
-                    </span>
-                {{/status_unsubmitted}}
-                {{#status_graded}}
-                    <span class="mm-work-status badge badge-pill rounded-pill mr-2 badge-success">
-                        {{#str}}status_graded, block_mark_manager{{/str}}
-                    </span>
-                {{/status_graded}}
-                <button type="button" class="btn btn-primary btn-sm mm-grade-btn"
-                        data-type="{{typeidentifier}}"
-                        data-workid="{{workid}}"
-                        data-userid="{{userid}}">
-                    {{#str}}grade, block_mark_manager{{/str}}
-                </button>
-            </div>
-        </div>
-    {{/works}}
-    {{^works}}
+    {{#hasgroups}}
+        {{#groups}}
+            {{#hasname}}
+                <div class="mm-work-group-header d-flex justify-content-between align-items-center p-2 bg-light border rounded mb-2 mt-3">
+                    <div class="d-flex align-items-center">
+                        <i class="fa fa-folder-open mr-2 text-muted"></i>
+                        <strong>{{groupname}}</strong>
+                    </div>
+                    <span class="badge badge-secondary badge-pill">{{count}}</span>
+                </div>
+            {{/hasname}}
+
+            {{#works}}
+                <div class="mm-work-item list-group-item d-flex justify-content-between align-items-center"
+                     data-type="{{typeidentifier}}"
+                     data-workid="{{workid}}"
+                     data-userid="{{userid}}"
+                     {{#slot}}data-slot="{{slot}}"{{/slot}}>
+                    <div class="mm-work-info">
+                        <span class="mm-work-student font-weight-bold">{{studentname}}</span>
+                        <span class="mm-work-name d-block text-muted small">{{workname}}</span>
+                        {{#duedate}}
+                            <span class="mm-work-due d-block text-muted small">
+                                {{#userdate}} {{duedate}}, %d %B %Y {{/userdate}}
+                            </span>
+                        {{/duedate}}
+                    </div>
+                    <div class="mm-work-actions d-flex align-items-center">
+                        {{#status_ungraded}}
+                            <span class="mm-work-status badge badge-pill rounded-pill mr-2 badge-warning">
+                                {{#str}}status_ungraded, block_mark_manager{{/str}}
+                            </span>
+                        {{/status_ungraded}}
+                        {{#status_unsubmitted}}
+                            <span class="mm-work-status badge badge-pill rounded-pill mr-2 badge-danger">
+                                {{#str}}status_unsubmitted, block_mark_manager{{/str}}
+                            </span>
+                        {{/status_unsubmitted}}
+                        {{#status_graded}}
+                            <span class="mm-work-status badge badge-pill rounded-pill mr-2 badge-success">
+                                {{#str}}status_graded, block_mark_manager{{/str}}
+                            </span>
+                        {{/status_graded}}
+                        <button type="button" class="btn btn-primary btn-sm mm-grade-btn"
+                                data-type="{{typeidentifier}}"
+                                data-workid="{{workid}}"
+                                data-userid="{{userid}}"
+                                {{#slot}}data-slot="{{slot}}"{{/slot}}>
+                            {{#str}}grade, block_mark_manager{{/str}}
+                        </button>
+                    </div>
+                </div>
+            {{/works}}
+        {{/groups}}
+    {{/hasgroups}}
+
+    {{^hasgroups}}
         <div class="mm-work-empty text-muted">{{#str}}noworks, block_mark_manager{{/str}}</div>
-    {{/works}}
+    {{/hasgroups}}
 </div>

@@ -106,3 +106,30 @@ $string['feedback'] = 'Feedback';
 $string['feedbackplaceholder'] = 'Enter feedback for the student (optional)';
 $string['savegrade'] = 'Save grade';
 $string['openfullgrading'] = 'Open full grading page';
+
+$string['submissionrequired'] = 'Submission required';
+$string['submissionrequired_desc'] = 'This assignment has not been submitted by the student. You can only grade submitted work.';
+$string['attemptrequired'] = 'Attempt required';
+$string['attemptrequired_desc'] = 'This student has not completed the quiz yet. You can only grade finished attempts.';
+$string['questionslot'] = 'Question';
+$string['maxmark'] = 'Max mark';
+$string['noessayresponse'] = 'No essay response provided';
+$string['questionautograded'] = 'This question is auto-graded';
+$string['awardedmark'] = 'Awarded mark';
+$string['overallgrade'] = 'Overall grade';
+
+// === Grouping ===
+$string['groupby'] = 'Group by';
+$string['groupby_none'] = 'No grouping';
+$string['groupby_assignment'] = 'Group by assignment';
+$string['groupby_group'] = 'Group by group';
+$string['nogroup'] = 'No group';
+$string['graderequired'] = 'Please enter a grade before saving';
+
+// === Quiz grading ===
+$string['questionslot'] = 'Question';
+$string['maxmark'] = 'Max mark';
+$string['noessayresponse'] = 'No essay response provided';
+$string['awardedmark'] = 'Awarded mark';
+$string['missingslot'] = 'Missing question slot parameter';
+$string['invalidslot'] = 'Invalid question slot';

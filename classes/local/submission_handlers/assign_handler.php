@@ -288,14 +288,15 @@ class assign_handler implements submission_handler_interface {
         return 'block_mark_manager/grading_assign';
     }
 
-    /**
+        /**
      * Возвращает контекст для шаблона оценивания задания.
      *
      * @param int $workid Идентификатор экземпляра (cmid).
      * @param int $userid
+     * @param array $params Дополнительные параметры (например, 'slot' для quiz essay).
      * @return array
      */
-    public function get_grading_template_context(int $workid, int $userid): array {
+    public function get_grading_template_context(int $workid, int $userid, array $params = []): array {
         global $CFG, $DB;
 
         require_once($CFG->dirroot . '/mod/assign/locallib.php');
@@ -313,7 +314,8 @@ class assign_handler implements submission_handler_interface {
         $files = [];
         $hasfiles = false;
 
-        if ($submission) {
+                if ($submission) {
+            // === Текстовый ответ (плагин onlinetext) ===
             $onlinetext = $DB->get_record('assignsubmission_onlinetext', [
                 'assignment' => $instance->id,
                 'submission' => $submission->id,
@@ -327,10 +329,13 @@ class assign_handler implements submission_handler_interface {
                 $hassubmissiontext = true;
             }
 
+            // === Прикреплённые файлы ===
+            // ВАЖНО: компонент должен быть 'assignsubmission_file' (плагин отправки файлов),
+            // а не 'mod_assign'. Файлы сохраняются плагином, а не самим модулем задания.
             $fs = get_file_storage();
             $areafiles = $fs->get_area_files(
                 $context->id,
-                'mod_assign',
+                'assignsubmission_file',   // ← ИСПРАВЛЕНО: было 'mod_assign'
                 'submission_files',
                 $submission->id,
                 'filename',
@@ -351,6 +356,36 @@ class assign_handler implements submission_handler_interface {
                     )->out(false),
                     'mimetype' => $file->get_mimetype(),
                 ];
+            }
+
+            // === Fallback для обратной совместимости ===
+            // В очень старых версиях Moodle или при импорте данных файлы могут
+            // храниться под компонентом 'mod_assign'. Проверяем и там, если
+            // основной запрос ничего не вернул.
+            if (empty($files)) {
+                $legacyfiles = $fs->get_area_files(
+                    $context->id,
+                    'mod_assign',
+                    'submission_files',
+                    $submission->id,
+                    'filename',
+                    false
+                );
+                foreach ($legacyfiles as $file) {
+                    $hasfiles = true;
+                    $files[] = [
+                        'filename' => $file->get_filename(),
+                        'url' => \moodle_url::make_pluginfile_url(
+                            $file->get_contextid(),
+                            $file->get_component(),
+                            $file->get_filearea(),
+                            $file->get_itemid(),
+                            $file->get_filepath(),
+                            $file->get_filename()
+                        )->out(false),
+                        'mimetype' => $file->get_mimetype(),
+                    ];
+                }
             }
         }
 
@@ -374,6 +409,8 @@ class assign_handler implements submission_handler_interface {
             'userid' => $userid,
         ]);
 
+        $issubmitted = $submission && $submission->status === 'submitted';
+
         return [
             'studentname' => fullname($user),
             'workname' => $instance->name,
@@ -389,11 +426,20 @@ class assign_handler implements submission_handler_interface {
             'files' => $files,
             'hasfiles' => $hasfiles,
             'gradingurl' => $gradingurl->out(false),
+            'issubmitted' => $issubmitted,
         ];
     }
 
     /**
      * Сохраняет оценку и комментарий для задания.
+     *
+     * @param int $workid Идентификатор экземпляра (cmid).
+     * @param int $userid
+     * @param float $grade
+     * @param string $feedback
+     * @param array $options
+     * @return bool
+     * @throws \moodle_exception Если работа не была сдана студентом.
      */
     public function save_grade(int $workid, int $userid, float $grade, string $feedback, array $options = []): bool {
         global $CFG, $USER, $DB;
@@ -401,19 +447,29 @@ class assign_handler implements submission_handler_interface {
         require_once($CFG->dirroot . '/mod/assign/locallib.php');
 
         $cm = get_coursemodule_from_id('assign', $workid, 0, false, MUST_EXIST);
-        $context = context_module::instance($cm->id);
+        $context = \context_module::instance($cm->id);
         $assign = new \assign($context, $cm, $cm->course);
 
-        $submission = $assign->get_user_submission($userid, true);
-        
-        $data = new stdClass();
+        $submission = $assign->get_user_submission($userid, false);
+
+        if (!$submission || $submission->status !== 'submitted') {
+            throw new \moodle_exception(
+                'submissionrequired',
+                'block_mark_manager',
+                '',
+                null,
+                'Cannot grade assignment that has not been submitted by the student.'
+            );
+        }
+
+        $data = new \stdClass();
         $data->grade = $grade;
-        $data->attemptnumber = $submission ? $submission->attemptnumber : -1;
-        
+        $data->attemptnumber = $submission->attemptnumber;
+
         $data->assignfeedbackcomments_editor = [
             'text' => $feedback,
             'format' => FORMAT_HTML,
-            'itemid' => 0
+            'itemid' => 0,
         ];
 
         $assign->save_grade($userid, $data);

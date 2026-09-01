@@ -1,6 +1,10 @@
 {{! @template block_mark_manager/grading_assign }}
-
-<form class="mm-grade-form">
+{{#issubmitted}}
+<form class="mm-grade-form"
+      data-type="{{typeidentifier}}"
+      data-workid="{{workid}}"
+      data-userid="{{userid}}"
+      onsubmit="return false;">
     <div class="mm-grade-header mb-3 pb-3 border-bottom">
         <div class="d-flex justify-content-between align-items-start mb-1">
             <h5 class="mb-0">{{studentname}}</h5>
@@ -35,7 +39,6 @@
         {{/hassubmissiontext}}
     </div>
 
-    {{! === Блок прикреплённых файлов === }}
     <div class="mm-files-block mb-3">
         <h6 class="text-muted text-uppercase small font-weight-bold">
             {{#str}} attachedfiles, block_mark_manager {{/str}}
@@ -59,7 +62,6 @@
         {{/hasfiles}}
     </div>
 
-    {{! === Поля оценки и комментария === }}
     <div class="mm-grading-block mt-4">
         <div class="form-group">
             <label for="mm-grade-input" class="font-weight-bold">
@@ -90,9 +92,20 @@
                       placeholder="{{#str}} feedbackplaceholder, block_mark_manager {{/str}}"></textarea>
         </div>
 
-        <button type="submit" class="btn btn-primary btn-block">
+        <button type="button" class="btn btn-primary btn-block mm-save-grade-btn">
             <i class="fa fa-save mr-1"></i>
             {{#str}} savegrade, block_mark_manager {{/str}}
         </button>
     </div>
 </form>
+{{/issubmitted}}
+{{^issubmitted}}
+<div class="alert alert-warning text-center my-4">
+    <i class="fa fa-exclamation-triangle fa-2x mb-2 d-block"></i>
+    <h5>{{#str}} submissionrequired, block_mark_manager {{/str}}</h5>
+    <p class="mb-2">{{#str}} submissionrequired_desc, block_mark_manager {{/str}}</p>
+    <small class="text-muted">
+        <strong>{{studentname}}</strong> — {{workname}}
+    </small>
+</div>
+{{/issubmitted}}

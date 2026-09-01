@@ -15,10 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Внешний (AJAX) веб-сервис для сохранения оценки работы.
- *
- * Маршрутизирует запрос к нужному обработчику через Реестр и вызывает его
- * метод save_grade, передавая при необходимости дополнительные данные (options).
+ * Веб-сервис сохранения оценки работы.
  *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
@@ -48,8 +45,6 @@ class save_submission_grade extends external_api {
 
     /**
      * Регистрация обработчиков типов работ в реестре.
-     * Дублирует логику из lib.php, потому что функция может быть недоступна
-     * в контексте внешнего веб-сервиса.
      */
     protected static function register_handlers(): void {
         $registry = submission_handler_registry::instance();
@@ -87,7 +82,8 @@ class save_submission_grade extends external_api {
             'grade' => new external_value(
                 PARAM_FLOAT,
                 'Оценка',
-                VALUE_REQUIRED
+                VALUE_DEFAULT,
+                null
             ),
             'feedback' => new external_value(
                 PARAM_RAW,
@@ -110,7 +106,7 @@ class save_submission_grade extends external_api {
      * @param string $type Тип работы
      * @param int $workid cmid
      * @param int $userid ID студента
-     * @param float $grade Оценка
+     * @param float|null $grade Оценка (может быть null, если поле пустое)
      * @param string $feedback Комментарий
      * @param string $options JSON-строка с опциями
      * @return array ['success' => bool]
@@ -119,12 +115,13 @@ class save_submission_grade extends external_api {
         string $type,
         int $workid,
         int $userid,
-        float $grade,
+        ?float $grade = null,
         string $feedback = '',
         string $options = '{}'
     ): array {
         global $DB;
 
+        // Валидация параметров
         $params = self::validate_parameters(self::execute_parameters(), [
             'type' => $type,
             'workid' => $workid,
@@ -134,41 +131,49 @@ class save_submission_grade extends external_api {
             'options' => $options,
         ]);
 
+        // === Проверка, что оценка задана ===
+        if ($params['grade'] === null || $params['grade'] === '') {
+            throw new moodle_exception('graderequired', 'block_mark_manager');
+        }
+
+        // Получаем модуль курса
         $cm = get_coursemodule_from_id('', $params['workid'], 0, false, MUST_EXIST);
         $context = context_module::instance($cm->id);
 
+        // Проверка прав
         self::validate_context($context);
         require_capability('block/mark_manager:grade', $context);
 
+        // Регистрация обработчиков
         self::register_handlers();
 
         $registry = submission_handler_registry::instance();
         $handler = $registry->get_handler($params['type']);
 
         if ($handler === null) {
-            throw new moodle_exception(
-                'unknownsubmissiontype',
-                'block_mark_manager',
-                '',
-                $params['type']
-            );
+            throw new moodle_exception('unknownsubmissiontype', 'block_mark_manager', '', $params['type']);
         }
 
+        // Декодируем опции
         $optionsarray = json_decode($params['options'], true) ?: [];
 
+        // Сохраняем оценку (гарантированно передаём валидный float)
         $success = $handler->save_grade(
             $params['workid'],
             $params['userid'],
-            $params['grade'],
+            (float)$params['grade'],
             $params['feedback'],
             $optionsarray
         );
 
-        return ['success' => $success];
+        return ['success' => (bool)$success];
     }
 
     /**
      * Описание возвращаемого значения.
+     *
+     * Этот метод ОБЯЗАТЕЛЕН для всех внешних веб-сервисов.
+     * Без него Moodle бросает ошибку "Missing returned values description method".
      *
      * @return external_single_structure
      */

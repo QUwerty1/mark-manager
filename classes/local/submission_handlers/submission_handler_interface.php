@@ -15,11 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Контракт (интерфейс) для обработчиков типов сдаваемых работ.
- *
- * Каждый тип задания (задание, тест, семинар, форум и т.д.) реализует этот
- * интерфейс, чтобы Реестр (submission_handler_registry) мог единообразно
- * агрегировать подсчёты и маршрутизировать запросы на оценивание.
+ * Интерфейс обработчика типа работы.
  *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
@@ -29,93 +25,76 @@
 namespace block_mark_manager\local\submission_handlers;
 
 /**
- * Интерфейс обработчика типа сдаваемой работы.
- *
- * Определяет строгий контракт, которому должен следовать каждый тип работы:
- * подсчёт количества, получение списков, рендеринг UI оценивания и сохранение оценок.
+ * Контракт для обработчиков типов работ.
  */
 interface submission_handler_interface {
+
     /**
      * Возвращает уникальный идентификатор типа работы.
      *
-     * Используется Реестром для маршрутизации фрагментов и хранения типа в списках.
-     * Например: 'assign', 'quiz', 'forum'.
-     *
-     * @return string Уникальная строка-идентификатор типа.
+     * @return string
      */
     public function get_type_identifier(): string;
 
     /**
-     * Возвращает количество непроверенных (неоценённых) работ в курсе.
+     * Количество непроверенных работ в курсе.
      *
-     * @param int $courseid Идентификатор курса.
-     * @return int Целое число — количество непроверенных работ.
+     * @param int $courseid
+     * @return int
      */
     public function get_ungraded_count(int $courseid): int;
 
     /**
-     * Возвращает количество несданных работ в курсе.
+     * Количество несданных работ в курсе.
      *
-     * @param int $courseid Идентификатор курса.
-     * @return int Целое число — количество несданных работ.
+     * @param int $courseid
+     * @return int
      */
     public function get_unsubmitted_count(int $courseid): int;
 
     /**
-     * Возвращает количество уже проверенных (оценённых) работ в курсе.
+     * Количество уже проверенных работ в курсе.
      *
-     * @param int $courseid Идентификатор курса.
-     * @return int Целое число — количество проверенных работ.
+     * @param int $courseid
+     * @return int
      */
     public function get_graded_count(int $courseid): int;
 
     /**
      * Возвращает список работ для отображения в блоке.
      *
-     * Каждый элемент списка должен быть экземпляром submission_data,
-     * заполненным стандартными полями (имя студента, название работы,
-     * срок сдачи, статус) и специфичными данными в поле options. Поле
-     * typeidentifier заполняется автоматически Реестром.
-     *
-     * @param int $courseid Идентификатор курса.
-     * @param array $filters Массив фильтров (например, статус срока сдачи,
-     *                       группировка и сортировка).
-     * @return submission_data[] Массив объектов submission_data.
+     * @param int $courseid
+     * @param array $filters
+     * @return submission_data[]
      */
     public function get_works_list(int $courseid, array $filters): array;
 
     /**
-     * Возвращает строковый путь к специфичному Mustache-шаблону оценивания.
+     * Возвращает имя Mustache-шаблона оценивания.
      *
-     * Например: 'block_mark_manager/grading_assign'.
-     *
-     * @return string Путь к Mustache-шаблону в формате 'component/templatename'.
+     * @return string
      */
     public function get_grading_template_name(): string;
 
     /**
-     * Возвращает контекстные данные для Mustache-шаблона оценивания.
+     * Возвращает контекст для шаблона оценивания.
      *
-     * Данные могут включать текст сданной работы, ссылки на файлы
-     * (через Moodle File API), текущую оценку и т.п.
-     *
-     * @param int $workid Идентификатор работы (экземпляра модуля курса).
-     * @param int $userid Идентификатор пользователя (студента).
-     * @return array Ассоциативный массив данных для шаблона.
+     * @param int $workid Идентификатор экземпляра (cmid).
+     * @param int $userid Идентификатор студента.
+     * @param array $params Дополнительные параметры (например, 'slot' для эссе).
+     * @return array
      */
-    public function get_grading_template_context(int $workid, int $userid): array;
+    public function get_grading_template_context(int $workid, int $userid, array $params = []): array;
 
     /**
-     * Сохраняет новую оценку и комментарий (обратную связь) для работы.
+     * Сохраняет оценку и комментарий.
      *
-     * Реализация отвечает за всю логику записи в БД, специфичную для модуля.
-     *
-     * @param int $workid Идентификатор работы (экземпляра модуля курса).
-     * @param int $userid Идентификатор пользователя (студента).
-     * @param float $grade Новая оценка.
-     * @param string $feedback Текстовый комментарий/обратная связь.
-     * @param array $options Ассоциативный массив дополнительных данных.
-     * @return bool Статус успешного сохранения.
+     * @param int $workid
+     * @param int $userid
+     * @param float $grade
+     * @param string $feedback
+     * @param array $options
+     * @return bool
      */
     public function save_grade(int $workid, int $userid, float $grade, string $feedback, array $options = []): bool;
 }

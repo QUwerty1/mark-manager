@@ -87,3 +87,30 @@ $string['feedback'] = 'Комментарий';
 $string['feedbackplaceholder'] = 'Введите комментарий для студента (необязательно)';
 $string['savegrade'] = 'Сохранить оценку';
 $string['openfullgrading'] = 'Открыть страницу оценивания';
+
+$string['submissionrequired'] = 'Требуется сдача работы';
+$string['submissionrequired_desc'] = 'Задание ещё не сдано студентом. Оценивать можно только сданные работы.';
+$string['attemptrequired'] = 'Требуется попытка';
+$string['attemptrequired_desc'] = 'Студент ещё не завершил этот тест. Оценивать можно только завершённые попытки.';
+$string['questionslot'] = 'Вопрос';
+$string['maxmark'] = 'Макс. балл';
+$string['noessayresponse'] = 'Ответ на эссе не предоставлен';
+$string['questionautograded'] = 'Вопрос оценивается автоматически';
+$string['awardedmark'] = 'Выставленный балл';
+$string['overallgrade'] = 'Итоговая оценка';
+
+// === Группировка ===
+$string['groupby'] = 'Группировать по';
+$string['groupby_none'] = 'Без группировки';
+$string['groupby_assignment'] = 'По заданию';
+$string['groupby_group'] = 'По группе';
+$string['nogroup'] = 'Без группы';
+$string['graderequired'] = 'Пожалуйста, введите оценку перед сохранением';
+
+// === Оценивание теста ===
+$string['questionslot'] = 'Вопрос';
+$string['maxmark'] = 'Макс. балл';
+$string['noessayresponse'] = 'Ответ на эссе не предоставлен';
+$string['awardedmark'] = 'Выставленный балл';
+$string['missingslot'] = 'Отсутствует параметр слота вопроса';
+$string['invalidslot'] = 'Неверный слот вопроса';

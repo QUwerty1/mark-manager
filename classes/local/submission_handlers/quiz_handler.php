@@ -17,15 +17,18 @@
 /**
  * Обработчик типа работы «Тест» (mod_quiz).
  *
- * Реализует контракт submission_handler_interface: подсчёт непроверенных,
- * несданных и проверенных попыток, формирование списка работ, а также
- * получение контекста и сохранение оценки для Mustache-шаблона оценивания.
+ * Логика подсчёта адаптирована из ned-code/moodle-block_marking_manager:
+ *   - unmarked:  state='finished', preview=0, sumgrades IS NULL, есть essay.
+ *   - marked:    state='finished', preview=0, sumgrades >= 0.
+ *   - unsubmitted: зачисленные без завершённой попытки.
+ *
+ * Форма оценивания эссе содержит только оценку и комментарий к конкретному
+ * эссе-вопросу (как в ned-code/moodle-block_marking_manager).
  *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-
 
 namespace block_mark_manager\local\submission_handlers;
 
@@ -33,10 +36,19 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/mod/quiz/locallib.php');
 
+use stdClass;
+use context_course;
+use context_module;
+use moodle_url;
+use core_user;
+use block_mark_manager\local\submission_handlers\submission_data;
+use block_mark_manager\local\submission_handlers\submission_handler_interface;
+
 /**
  * Обработчик тестов (quiz).
  */
 class quiz_handler implements submission_handler_interface {
+
     /**
      * Возвращает идентификатор типа.
      *
@@ -47,26 +59,41 @@ class quiz_handler implements submission_handler_interface {
     }
 
     /**
-     * Количество непроверенных вопросов тестов (summary state = 'needsgrading').
-     *
-     * Использует тот же механизм question engine, что и отчёт «Оценивание»
-     * модуля quiz, поэтому значение совпадает с «Требуют оценки» в сводке
-     * оценивания теста.
+     * Количество непроверенных попыток тестов в курсе.
      *
      * @param int $courseid
      * @return int
      */
     public function get_ungraded_count(int $courseid): int {
-        $summary = $this->get_quiz_state_summary($courseid);
-        $total = 0;
-        foreach ($summary as $row) {
-            $total += $row->needsgrading;
-        }
-        return $total;
+        global $DB;
+
+        $sql = "SELECT COUNT(DISTINCT qa.userid)
+                  FROM {quiz} q
+                  JOIN {course_modules} cm ON cm.instance = q.id AND cm.course = q.course
+                  JOIN {modules} m ON m.id = cm.module AND m.name = 'quiz'
+                  JOIN {quiz_attempts} qa ON qa.quiz = q.id
+                 WHERE q.course = :courseid
+                   AND cm.deletioninprogress = 0
+                   AND qa.state = :statefinished
+                   AND qa.preview = 0
+                   AND qa.sumgrades IS NULL
+                   AND EXISTS (
+                       SELECT 1
+                         FROM {quiz_slots} qs
+                         JOIN {question} qn ON qn.id = qs.questionid
+                        WHERE qs.quizid = q.id
+                          AND qn.qtype = :qtype
+                   )";
+
+        return (int) $DB->count_records_sql($sql, [
+            'courseid' => $courseid,
+            'statefinished' => 'finished',
+            'qtype' => 'essay',
+        ]);
     }
 
     /**
-     * Количество несданных тестов (нет ни одной завершённой попытки).
+     * Количество несданных тестов в курсе.
      *
      * @param int $courseid
      * @return int
@@ -74,78 +101,60 @@ class quiz_handler implements submission_handler_interface {
     public function get_unsubmitted_count(int $courseid): int {
         global $DB;
 
-        $sql = "SELECT COUNT(DISTINCT q.id)
-                  FROM {quiz} q
-                  JOIN {course_modules} cm ON cm.instance = q.id
+        $coursecontext = context_course::instance($courseid);
+        list($esql, $params) = get_enrolled_sql($coursecontext);
+
+        $sql = "SELECT COUNT(DISTINCT u.id)
+                  FROM {user} u
+                  JOIN ($esql) eu ON eu.id = u.id
+                  JOIN {quiz} q ON q.course = :courseid
+                  JOIN {course_modules} cm ON cm.instance = q.id AND cm.course = q.course
                   JOIN {modules} m ON m.id = cm.module AND m.name = 'quiz'
-                  JOIN {enrol} e ON e.courseid = q.course
-                  JOIN {user_enrolments} ue ON ue.enrolid = e.id
-                 WHERE q.course = :courseid
+                 WHERE u.deleted = 0
+                   AND cm.deletioninprogress = 0
                    AND NOT EXISTS (
-                       SELECT 1 FROM {quiz_attempts} qa
-                        WHERE qa.quiz = q.id AND qa.userid = ue.userid AND qa.state = 'finished'
+                       SELECT 1
+                         FROM {quiz_attempts} qa
+                        WHERE qa.quiz = q.id
+                          AND qa.userid = u.id
+                          AND qa.state = :statefinished
+                          AND qa.preview = 0
                    )";
 
-        return $DB->count_records_sql($sql, ['courseid' => $courseid]);
+        $params['courseid'] = $courseid;
+        $params['statefinished'] = 'finished';
+
+        return (int) $DB->count_records_sql($sql, $params);
     }
 
     /**
-     * Количество уже проверенных вопросов тестов (summary state
-     * 'manuallygraded' + 'autograded').
+     * Количество уже проверенных попыток тестов в курсе.
      *
      * @param int $courseid
      * @return int
      */
     public function get_graded_count(int $courseid): int {
-        $summary = $this->get_quiz_state_summary($courseid);
-        $total = 0;
-        foreach ($summary as $row) {
-            $total += $row->manuallygraded + $row->autograded;
-        }
-        return $total;
-    }
+        global $DB;
 
-    /**
-     * Возвращает сводку состояний вопросов всех завершённых попыток тестов
-     * курса, используя question engine data mapper (как отчёт оценивания quiz).
-     *
-     * @param int $courseid
-     * @return array Массив объектов со полями needsgrading/autograded/manuallygraded/all.
-     */
-    private function get_quiz_state_summary(int $courseid): array {
-        $dm = new \question_engine_data_mapper();
-        $qubaids = $this->get_qubaids_condition($courseid);
-        return $dm->load_questions_usages_question_state_summary($qubaids);
-    }
+        $sql = "SELECT COUNT(DISTINCT qa.userid)
+                  FROM {quiz} q
+                  JOIN {course_modules} cm ON cm.instance = q.id AND cm.course = q.course
+                  JOIN {modules} m ON m.id = cm.module AND m.name = 'quiz'
+                  JOIN {quiz_attempts} qa ON qa.quiz = q.id
+                 WHERE q.course = :courseid
+                   AND cm.deletioninprogress = 0
+                   AND qa.state = :statefinished
+                   AND qa.preview = 0
+                   AND qa.sumgrades >= 0";
 
-    /**
-     * Строит условие выборки question usages для завершённых, не preview
-     * попыток тестов заданного курса.
-     *
-     * @param int $courseid
-     * @return \qubaid_join
-     */
-    private function get_qubaids_condition(int $courseid): \qubaid_join {
-        $where = "qz.course = :mmcourseid AND quiza.preview = 0 AND quiza.state = :statefinished";
-        $params = [
-            'mmcourseid' => $courseid,
+        return (int) $DB->count_records_sql($sql, [
+            'courseid' => $courseid,
             'statefinished' => 'finished',
-        ];
-        return new \qubaid_join(
-            "{quiz_attempts} quiza JOIN {quiz} qz ON qz.id = quiza.quiz",
-            'quiza.uniqueid',
-            $where,
-            $params
-        );
+        ]);
     }
 
     /**
-     * Возвращает список работ (эссе-вопросов тестов) для блока.
-     *
-     * Каждый эссе-вопрос завершённой попытки является отдельным элементом
-     * списка (submission_data). В поле $options хранится текст эссе и
-     * прикреплённые файлы. Несданные тесты (без завершённой попытки)
-     * представлены одним элементом на тест/студента.
+     * Возвращает список работ для блока.
      *
      * @param int $courseid
      * @param array $filters
@@ -154,89 +163,182 @@ class quiz_handler implements submission_handler_interface {
     public function get_works_list(int $courseid, array $filters): array {
         global $DB;
 
-        $sql = "SELECT qa.id AS attemptid, qa.quiz AS quizid, qa.userid, qa.uniqueid,
-                       q.name AS workname, q.timeclose, cm.id AS cmid,
-                       u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic,
-                       u.middlename, u.alternatename
-                  FROM {quiz} q
-                  JOIN {course_modules} cm ON cm.instance = q.id
-                  JOIN {modules} m ON m.id = cm.module AND m.name = 'quiz'
-                  JOIN {quiz_attempts} qa ON qa.quiz = q.id
-                  JOIN {user} u ON u.id = qa.userid
-                 WHERE q.course = :courseid AND qa.state = 'finished'
-                 ORDER BY q.timeclose ASC, u.lastname ASC, u.firstname ASC";
+        $coursecontext = context_course::instance($courseid);
+        list($esql, $params) = get_enrolled_sql($coursecontext);
 
-        $attempts = $DB->get_records_sql($sql, ['courseid' => $courseid]);
-
-        $works = [];
-        foreach ($attempts as $rec) {
-            $context = \context_module::instance($rec->cmid);
-            $essays = $this->get_quiz_essay_slots($rec->quizid);
-            foreach ($essays as $essay) {
-                $response = $this->get_essay_response($rec->uniqueid, $essay->slot, $context);
-                $works[] = new submission_data(
-                    $this->get_type_identifier(),
-                    $rec->cmid,
-                    $rec->userid,
-                    fullname($rec),
-                    $essay->name,
-                    $rec->timeclose,
-                    'ungraded',
-                    null,
-                    [
-                        'attemptid' => (int) $rec->attemptid,
-                        'quizid' => (int) $rec->quizid,
-                        'slot' => (int) $essay->slot,
-                        'questionid' => (int) $essay->questionid,
-                        'essaytext' => $response['essaytext'],
-                        'files' => $response['files'],
-                    ]
-                );
+        // Динамическая фильтрация по статусу на уровне БД.
+        $statussql = '';
+        $statusparams = [];
+        if (!empty($filters['status'])) {
+            if ($filters['status'] === 'ungraded') {
+                $statussql = "AND qa.sumgrades IS NULL
+                              AND EXISTS (
+                                  SELECT 1
+                                    FROM {quiz_slots} qsf
+                                    JOIN {question} qnf ON qnf.id = qsf.questionid
+                                   WHERE qsf.quizid = q.id AND qnf.qtype = :qtype_filter
+                              )";
+                $statusparams['qtype_filter'] = 'essay';
+            } else if ($filters['status'] === 'unsubmitted') {
+                $statussql = "AND qa.id IS NULL";
+            } else if ($filters['status'] === 'graded') {
+                $statussql = "AND qa.sumgrades >= 0";
             }
         }
 
-        $sqlunsub = "SELECT q.id AS quizid, ue.userid, q.name AS workname, q.timeclose, cm.id AS cmid,
-                            u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic,
-                            u.middlename, u.alternatename
-                       FROM {quiz} q
-                       JOIN {course_modules} cm ON cm.instance = q.id
-                       JOIN {modules} m ON m.id = cm.module AND m.name = 'quiz'
-                       JOIN {enrol} e ON e.courseid = q.course
-                       JOIN {user_enrolments} ue ON ue.enrolid = e.id
-                       JOIN {user} u ON u.id = ue.userid
-                      WHERE q.course = :courseid
-                        AND NOT EXISTS (
-                            SELECT 1 FROM {quiz_attempts} qa
-                             WHERE qa.quiz = q.id AND qa.userid = ue.userid AND qa.state = 'finished'
-                        )
-                      ORDER BY q.timeclose ASC, u.lastname ASC, u.firstname ASC";
+        $sql = "SELECT u.id AS userid, u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic, u.middlename, u.alternatename,
+                       q.id AS quizid, q.name AS quizname, q.timeclose, q.grade AS maxgrade,
+                       cm.id AS cmid,
+                       qa.id AS attemptid, qa.uniqueid, qa.sumgrades, qa.state AS attemptstate
+                  FROM {user} u
+                  JOIN ($esql) eu ON eu.id = u.id
+                  JOIN {quiz} q ON q.course = :courseid
+                  JOIN {course_modules} cm ON cm.instance = q.id AND cm.course = q.course
+                  JOIN {modules} m ON m.id = cm.module AND m.name = 'quiz'
+             LEFT JOIN {quiz_attempts} qa ON qa.quiz = q.id AND qa.userid = u.id
+                                         AND qa.state = :statefinished AND qa.preview = 0
+                 WHERE u.deleted = 0
+                   AND cm.deletioninprogress = 0
+                   $statussql
+              ORDER BY q.timeclose ASC, u.lastname ASC, u.firstname ASC";
 
-        $unsub = $DB->get_records_sql($sqlunsub, ['courseid' => $courseid]);
-        foreach ($unsub as $rec) {
-            $works[] = new submission_data(
-                $this->get_type_identifier(),
-                $rec->cmid,
-                $rec->userid,
-                fullname($rec),
-                $rec->workname,
-                $rec->timeclose,
-                'unsubmitted',
-                null,
-                [
-                    'quizid' => (int) $rec->quizid,
-                    'attemptid' => 0,
-                ]
-            );
+        $params['courseid'] = $courseid;
+        $params['statefinished'] = 'finished';
+        $params = array_merge($params, $statusparams);
+
+        $records = $DB->get_records_sql($sql, $params);
+
+        // Получаем cmid для всех активных тестов в курсе.
+        $modinfo = get_fast_modinfo($courseid);
+        $quizcms = [];
+        foreach ($modinfo->get_instances_of('quiz') as $cm) {
+            if ($cm->deletioninprogress) {
+                continue;
+            }
+            $quizcms[$cm->instance] = $cm->id;
         }
+
+        if (empty($quizcms)) {
+            $cms = get_coursemodules_in_course('quiz', $courseid);
+            foreach ($cms as $cm) {
+                if (!empty($cm->deletioninprogress)) {
+                    continue;
+                }
+                $quizcms[$cm->instance] = $cm->id;
+            }
+        }
+
+        // Кэшируем essay-вопросы для каждого теста.
+        $quizessaycache = [];
+
+        $works = [];
+        foreach ($records as $r) {
+            if (!isset($quizcms[$r->quizid])) {
+                continue;
+            }
+            $cmid = $quizcms[$r->quizid];
+
+            // Определяем статус всей попытки.
+            $status = null;
+            if ($r->attemptid === null) {
+                $status = 'unsubmitted';
+            } else {
+                $sumgrades = ($r->sumgrades !== null && $r->sumgrades !== '') ? (float)$r->sumgrades : null;
+                if ($sumgrades === null) {
+                    $status = 'ungraded';
+                } else {
+                    $status = 'graded';
+                }
+            }
+
+            // Двойная проверка фильтрации на уровне PHP.
+            if (!empty($filters['status']) && $filters['status'] !== $status) {
+                continue;
+            }
+
+            $userobj = new stdClass();
+            $userobj->id = $r->userid;
+            $userobj->firstname = $r->firstname;
+            $userobj->lastname = $r->lastname;
+            $userobj->firstnamephonetic = $r->firstnamephonetic ?? '';
+            $userobj->lastnamephonetic = $r->lastnamephonetic ?? '';
+            $userobj->middlename = $r->middlename ?? '';
+            $userobj->alternatename = $r->alternatename ?? '';
+
+            $fullname = fullname($userobj);
+            if (!empty($filters['studentname'])) {
+                if (stripos($fullname, $filters['studentname']) === false) {
+                    continue;
+                }
+            }
+
+            if ($status === 'unsubmitted') {
+                $works[] = new submission_data(
+                    $this->get_type_identifier(),
+                    $cmid,
+                    (int)$r->userid,
+                    $fullname,
+                    $r->quizname,
+                    (int)$r->timeclose,
+                    $status,
+                    null,
+                    [
+                        'quizid' => (int)$r->quizid,
+                        'attemptid' => 0,
+                    ]
+                );
+            } else {
+                // Для finished-попыток показываем каждый эссе-вопрос как отдельный элемент.
+                if (!isset($quizessaycache[$r->quizid])) {
+                    $quizessaycache[$r->quizid] = $this->get_quiz_essay_slots((int)$r->quizid);
+                }
+                $essays = $quizessaycache[$r->quizid];
+
+                if (empty($essays)) {
+                    continue;
+                }
+
+                $context = context_module::instance($cmid);
+                foreach ($essays as $essay) {
+                    $response = $this->get_essay_response((int)$r->uniqueid, (int)$essay->slot, $context);
+                    $works[] = new submission_data(
+                        $this->get_type_identifier(),
+                        $cmid,
+                        (int)$r->userid,
+                        $fullname,
+                        $essay->name,
+                        (int)$r->timeclose,
+                        $status,
+                        $status === 'graded' ? (float)$r->sumgrades : null,
+                        [
+                            'quizid' => (int)$r->quizid,
+                            'attemptid' => (int)$r->attemptid,
+                            'uniqueid' => (int)$r->uniqueid,
+                            'slot' => (int)$essay->slot,
+                            'questionid' => (int)$essay->questionid,
+                            'essaytext' => $response['essaytext'],
+                            'files' => $response['files'],
+                        ]
+                    );
+                }
+            }
+        }
+
+        usort($works, function (submission_data $a, submission_data $b): int {
+            if ($a->duedate != $b->duedate) {
+                return $a->duedate <=> $b->duedate;
+            }
+            return strcmp($a->studentname, $b->studentname);
+        });
 
         return $works;
     }
 
     /**
-     * Возвращает эссе-вопросы теста (тип qtype 'essay').
+     * Возвращает эссе-вопросы теста (qtype = 'essay').
      *
      * @param int $quizid
-     * @return array Массив объектов со слотами и названиями вопросов.
+     * @return array
      */
     private function get_quiz_essay_slots(int $quizid): array {
         global $DB;
@@ -245,25 +347,27 @@ class quiz_handler implements submission_handler_interface {
             "SELECT qs.slot, qs.questionid, q.name
                FROM {quiz_slots} qs
                JOIN {question} q ON q.id = qs.questionid
-              WHERE qs.quizid = :quizid AND q.qtype = 'essay'
+              WHERE qs.quizid = :quizid AND q.qtype = :qtype
               ORDER BY qs.slot ASC",
-            ['quizid' => $quizid]
+            ['quizid' => $quizid, 'qtype' => 'essay']
         );
     }
 
     /**
      * Возвращает текст эссе-ответа и прикреплённые файлы для слота попытки.
      *
-     * @param int $uniqueid Идентификатор использования вопросов попытки.
-     * @param int $slot Номер слота вопроса в тесте.
-     * @param \context $context Контекст модуля.
+     * @param int $uniqueid
+     * @param int $slot
+     * @param context_module $context
      * @return array ['essaytext' => string, 'files' => array]
      */
-    private function get_essay_response(int $uniqueid, int $slot, \context $context): array {
+    private function get_essay_response(int $uniqueid, int $slot, context_module $context): array {
         global $DB;
 
         $qaid = $DB->get_field_sql(
-            "SELECT id FROM {question_attempts} WHERE questionusageid = :quaid AND slot = :slot",
+            "SELECT id
+               FROM {question_attempts}
+              WHERE questionusageid = :quaid AND slot = :slot",
             ['quaid' => $uniqueid, 'slot' => $slot]
         );
 
@@ -275,10 +379,10 @@ class quiz_handler implements submission_handler_interface {
                 "SELECT qasd.value
                    FROM {question_attempt_steps} qas
                    JOIN {question_attempt_step_data} qasd ON qasd.attemptstepid = qas.id
-                  WHERE qas.questionattemptid = :qaid AND qasd.name = '-response'
+                  WHERE qas.questionattemptid = :qaid AND qasd.name = :responsefield
                   ORDER BY qas.sequencenumber DESC
                   LIMIT 1",
-                ['qaid' => $qaid]
+                ['qaid' => $qaid, 'responsefield' => '-response']
             );
 
             $fs = get_file_storage();
@@ -301,6 +405,7 @@ class quiz_handler implements submission_handler_interface {
                         $file->get_filepath(),
                         $file->get_filename()
                     )->out(false),
+                    'mimetype' => $file->get_mimetype(),
                 ];
             }
         }
@@ -318,159 +423,231 @@ class quiz_handler implements submission_handler_interface {
     }
 
     /**
-     * Возвращает контекст для шаблона оценивания теста.
+     * Возвращает контекст для шаблона оценивания эссе-вопроса теста.
      *
      * @param int $workid Идентификатор экземпляра (cmid).
      * @param int $userid
+     * @param array $params Дополнительные параметры (должен содержать 'slot').
      * @return array
      */
-    public function get_grading_template_context(int $workid, int $userid): array {
+    public function get_grading_template_context(int $workid, int $userid, array $params = []): array {
         global $DB;
 
-        $cm = get_coursemodule_from_id('quiz', $workid, 0, false, MUST_EXIST);
-        $quiz = $DB->get_record('quiz', ['id' => $cm->instance], '*', MUST_EXIST);
-        $grade = $DB->get_record('quiz_grades', ['quiz' => $quiz->id, 'userid' => $userid]);
+        $slot = (int)($params['slot'] ?? 0);
+        if ($slot <= 0) {
+            throw new \moodle_exception('missingslot', 'block_mark_manager');
+        }
 
+        $cm = get_coursemodule_from_id('quiz', $workid, 0, false, MUST_EXIST);
+        $context = context_module::instance($cm->id);
+        $quiz = $DB->get_record('quiz', ['id' => $cm->instance], '*', MUST_EXIST);
+
+        // === Проверка сдачи работы (наличие finished-попытки) ===
         $attempt = $DB->get_record('quiz_attempts', [
             'quiz' => $quiz->id,
             'userid' => $userid,
             'state' => 'finished',
+            'preview' => 0,
         ], '*', IGNORE_MULTIPLE);
 
-        $questions = [];
+        $issubmitted = !empty($attempt);
+
+        // === Данные вопроса ===
+        $slotrecord = $DB->get_record('quiz_slots', ['quizid' => $quiz->id, 'slot' => $slot], '*', MUST_EXIST);
+        $question = $DB->get_record('question', ['id' => $slotrecord->questionid], '*', MUST_EXIST);
+
+        $maxmark = (float)$slotrecord->maxmark;
+        $mark = null;
+        $essaytext = '';
+        $hassubmissiontext = false;
+        $files = [];
+        $hasfiles = false;
+        $feedback = '';
+
         if ($attempt) {
-            $slots = $DB->get_records('quiz_slots', ['quizid' => $quiz->id], 'slot ASC');
-            foreach ($slots as $slot) {
-                $question = $DB->get_record('question', ['id' => $slot->questionid]);
-                if (!$question) {
-                    continue;
-                }
-                $step = $DB->get_record_sql(
+            $qaid = $DB->get_field_sql(
+                "SELECT id
+                   FROM {question_attempts}
+                  WHERE questionusageid = :quaid AND slot = :slot",
+                ['quaid' => $attempt->uniqueid, 'slot' => $slot]
+            );
+
+            if ($qaid) {
+                // Текущая оценка за вопрос.
+                $markstr = $DB->get_field_sql(
                     "SELECT qasd.value
                        FROM {question_attempt_steps} qas
                        JOIN {question_attempt_step_data} qasd ON qasd.attemptstepid = qas.id
-                      WHERE qas.questionattemptid = (
-                                SELECT id FROM {question_attempts}
-                                 WHERE questionusageid = :quaid AND slot = :slot
-                            )
-                        AND qasd.name = '-mark'
+                      WHERE qas.questionattemptid = :qaid AND qasd.name = :markfield
                       ORDER BY qas.sequencenumber DESC
                       LIMIT 1",
-                    ['quaid' => $attempt->uniqueid, 'slot' => $slot->slot],
-                    IGNORE_MULTIPLE
+                    ['qaid' => $qaid, 'markfield' => '-mark']
                 );
-                $questions[] = [
-                    'slot' => $slot->slot,
-                    'name' => $question->name,
-                    'mark' => $step ? $step->value : null,
-                ];
+                if ($markstr !== false && $markstr !== null && $markstr !== '') {
+                    $mark = (float)$markstr;
+                }
+
+                // Текст эссе-ответа.
+                $essaytext = (string) $DB->get_field_sql(
+                    "SELECT qasd.value
+                       FROM {question_attempt_steps} qas
+                       JOIN {question_attempt_step_data} qasd ON qasd.attemptstepid = qas.id
+                      WHERE qas.questionattemptid = :qaid AND qasd.name = :responsefield
+                      ORDER BY qas.sequencenumber DESC
+                      LIMIT 1",
+                    ['qaid' => $qaid, 'responsefield' => '-response']
+                );
+                if (trim(strip_tags($essaytext)) !== '') {
+                    $hassubmissiontext = true;
+                }
+
+                // Прикреплённые файлы.
+                $fs = get_file_storage();
+                $areafiles = $fs->get_area_files(
+                    $context->id,
+                    'question',
+                    'response_attachments',
+                    $qaid,
+                    'filename',
+                    false
+                );
+                foreach ($areafiles as $file) {
+                    $hasfiles = true;
+                    $files[] = [
+                        'filename' => $file->get_filename(),
+                        'url' => moodle_url::make_pluginfile_url(
+                            $file->get_contextid(),
+                            $file->get_component(),
+                            $file->get_filearea(),
+                            $file->get_itemid(),
+                            $file->get_filepath(),
+                            $file->get_filename()
+                        )->out(false),
+                        'mimetype' => $file->get_mimetype(),
+                    ];
+                }
+
+                // Комментарий к эссе (если есть).
+                $feedbackstr = $DB->get_field_sql(
+                    "SELECT qasd.value
+                       FROM {question_attempt_steps} qas
+                       JOIN {question_attempt_step_data} qasd ON qasd.attemptstepid = qas.id
+                      WHERE qas.questionattemptid = :qaid AND qasd.name = :feedbackfield
+                      ORDER BY qas.sequencenumber DESC
+                      LIMIT 1",
+                    ['qaid' => $qaid, 'feedbackfield' => '-comment']
+                );
+                if ($feedbackstr !== false && $feedbackstr !== null) {
+                    $feedback = (string)$feedbackstr;
+                }
             }
         }
 
-        $user = \core_user::get_user($userid);
+        // === Отформатированная дата ===
+        $duedateformatted = '';
+        if (!empty($quiz->timeclose)) {
+            $duedateformatted = userdate($quiz->timeclose, get_string('strftimedaydatetime', 'core_langconfig'));
+        }
+
+        // === Ссылка на страницу оценивания вопроса ===
+        $gradingurl = '';
+        if ($attempt) {
+            $reviewurl = new moodle_url('/mod/quiz/reviewquestion.php', [
+                'attempt' => $attempt->id,
+                'slot' => $slot,
+            ]);
+            $gradingurl = $reviewurl->out(false);
+        }
+
+        $user = core_user::get_user($userid);
 
         return [
             'studentname' => fullname($user),
             'workname' => $quiz->name,
-            'duedate' => (int) $quiz->timeclose,
-            'grade' => $grade ? $grade->grade : null,
-            'questions' => $questions,
+            'questionname' => $question->name,
+            'slot' => $slot,
+            'duedate' => (int)$quiz->timeclose,
+            'duedateformatted' => $duedateformatted,
+            'hasduedate' => !empty($quiz->timeclose),
+            'mark' => $mark,
+            'hasmark' => $mark !== null,
+            'maxmark' => $maxmark,
+            'essaytext' => $essaytext,
+            'hassubmissiontext' => $hassubmissiontext,
+            'files' => $files,
+            'hasfiles' => $hasfiles,
+            'feedback' => $feedback,
+            'gradingurl' => $gradingurl,
+            'issubmitted' => $issubmitted,
         ];
     }
 
     /**
-     * Сохраняет оценку и комментарий для теста.
+     * Сохраняет оценку и комментарий для конкретного эссе-вопроса.
      *
      * @param int $workid Идентификатор экземпляра (cmid).
      * @param int $userid
-     * @param float $grade
-     * @param string $feedback
-     * @param array $options Дополнительные данные. Поддерживается ключ
-     *                        'marks' — массив оценок по слотам вопросов
-     *                        (slot => оценка), которые сохраняются через
-     *                        question engine как ручные оценки.
+     * @param float $grade Оценка за эссе.
+     * @param string $feedback Комментарий к эссе.
+     * @param array $options Должен содержать 'slot'.
      * @return bool
+     * @throws \moodle_exception
      */
     public function save_grade(int $workid, int $userid, float $grade, string $feedback, array $options = []): bool {
-        global $DB;
+        global $CFG, $DB;
+
+        require_once($CFG->dirroot . '/mod/quiz/lib.php');
+        require_once($CFG->dirroot . '/mod/quiz/locallib.php');
+
+        $slot = (int)($options['slot'] ?? 0);
+        if ($slot <= 0) {
+            throw new \moodle_exception('missingslot', 'block_mark_manager');
+        }
 
         $cm = get_coursemodule_from_id('quiz', $workid, 0, false, MUST_EXIST);
         $quiz = $DB->get_record('quiz', ['id' => $cm->instance], '*', MUST_EXIST);
 
-        $gradeobj = $DB->get_record('quiz_grades', ['quiz' => $quiz->id, 'userid' => $userid]);
-        if (!$gradeobj) {
-            $gradeobj = new \stdClass();
-            $gradeobj->quiz = $quiz->id;
-            $gradeobj->userid = $userid;
-            $gradeobj->timemodified = time();
-            $gradeobj->id = $DB->insert_record('quiz_grades', $gradeobj);
-        }
-        $gradeobj->grade = $grade;
-        $gradeobj->timemodified = time();
-        $DB->update_record('quiz_grades', $gradeobj);
-
-        if ($feedback !== '') {
-            $record = $DB->get_record('quiz_grade_feedback', [
-                'quiz' => $quiz->id,
-                'userid' => $userid,
-            ]);
-            if ($record) {
-                $record->feedback = $feedback;
-                $DB->update_record('quiz_grade_feedback', $record);
-            } else {
-                $record = new \stdClass();
-                $record->quiz = $quiz->id;
-                $record->userid = $userid;
-                $record->feedback = $feedback;
-                $DB->insert_record('quiz_grade_feedback', $record);
-            }
-        }
-
-        if (!empty($options['marks']) && is_array($options['marks'])) {
-            $this->save_question_marks($quiz->id, $userid, $options['marks']);
-        }
-
-        return true;
-    }
-
-    /**
-     * Сохраняет ручные оценки по отдельным вопросам (слотам) завершённой попытки.
-     *
-     * Использует question engine для применения оценки к каждому вопросу и
-     * пересчёта попытки, что синхронизирует итоговую оценку теста.
-     *
-     * @param int $quizid Идентификатор теста.
-     * @param int $userid Идентификатор студента.
-     * @param array $marks Массив оценок по слотам (slot => оценка).
-     * @return void
-     */
-    private function save_question_marks(int $quizid, int $userid, array $marks): void {
-        global $DB;
-
+        // === Проверка сдачи работы ===
         $attempt = $DB->get_record('quiz_attempts', [
-            'quiz' => $quizid,
+            'quiz' => $quiz->id,
             'userid' => $userid,
             'state' => 'finished',
+            'preview' => 0,
         ], '*', IGNORE_MULTIPLE);
 
         if (!$attempt) {
-            return;
+            throw new \moodle_exception(
+                'attemptrequired',
+                'block_mark_manager',
+                '',
+                null,
+                'Cannot grade quiz essay that has no finished attempt by the student.'
+            );
         }
 
+        // === Загружаем question engine ===
         $quba = \question_engine::load_questions_usage_by_activity($attempt->uniqueid);
-        $changed = false;
-        foreach ($marks as $slot => $mark) {
-            $slot = (int) $slot;
-            if (!$quba->question_exists($slot)) {
-                continue;
-            }
-            $quba->set_question_attempt_mark($slot, (float) $mark);
-            $quba->regrade_question($slot, false);
-            $changed = true;
+
+        // === Проверяем, что слот существует ===
+        $slots = $quba->get_slots();
+        if (!in_array($slot, $slots)) {
+            throw new \moodle_exception('invalidslot', 'block_mark_manager');
         }
 
-        if ($changed) {
-            \question_engine::save_questions_usage_by_activity($quba);
-        }
+        // === Получаем объект question_attempt для слота ===
+        $qa = $quba->get_question_attempt($slot);
+
+        // === Устанавливаем ручную оценку через правильный API ===
+        // manual_grade($mark, $maxmark, $comment) — стандартный метод Moodle для ручной оценки
+        $maxmark = $qa->get_max_mark();
+        $qa->manual_grade($grade, $maxmark, $feedback);
+
+        // === Сохраняем изменения в question engine ===
+        \question_engine::save_questions_usage_by_activity($quba);
+
+        // === Обновляем итоговую оценку за тест в quiz_grades ===
+        quiz_save_best_grade($quiz, $userid);
+
+        return true;
     }
 }
