@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Возможности блока "Менеджер оценивания"
+ * Capabilities of the "Mark Manager" block.
  *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
@@ -25,44 +25,44 @@
 defined('MOODLE_INTERNAL') || die();
 
 $capabilities = [
-    'block/mark_manager:addinstance' => [
-        'riskbitmask' => RISK_SPAM | RISK_XSS,
-        'captype' => 'write',
-        'contextlevel' => CONTEXT_BLOCK,
-        'archetypes' => [
-            'editingteacher' => CAP_ALLOW,
-            'manager' => CAP_ALLOW,
-            'coursecreator' => CAP_ALLOW,
-        ],
-        'clonepermissionsfrom' => 'moodle/site:manageblocks',
-    ],
+                 'block/mark_manager:addinstance' => [
+                                                      'riskbitmask' => RISK_SPAM | RISK_XSS,
+                                                      'captype' => 'write',
+                                                      'contextlevel' => CONTEXT_BLOCK,
+                                                      'archetypes' => [
+                                                                       'editingteacher' => CAP_ALLOW,
+                                                                       'manager' => CAP_ALLOW,
+                                                                       'coursecreator' => CAP_ALLOW,
+                                                                      ],
+                                                      'clonepermissionsfrom' => 'moodle/site:manageblocks',
+                                                     ],
 
-    'block/mark_manager:view' => [
-        'captype' => 'read',
-        'contextlevel' => CONTEXT_BLOCK,
-        'archetypes' => [
-            'editingteacher' => CAP_ALLOW,
-            'teacher' => CAP_ALLOW,
-            'manager' => CAP_ALLOW,
-        ],
-    ],
+                 'block/mark_manager:view' => [
+                                               'captype' => 'read',
+                                               'contextlevel' => CONTEXT_BLOCK,
+                                               'archetypes' => [
+                                                                'editingteacher' => CAP_ALLOW,
+                                                                'teacher' => CAP_ALLOW,
+                                                                'manager' => CAP_ALLOW,
+                                                               ],
+                                              ],
 
-    'block/mark_manager:manage' => [
-        'riskbitmask' => RISK_SPAM | RISK_XSS,
-        'captype' => 'write',
-        'contextlevel' => CONTEXT_COURSE,
-        'archetypes' => [
-            'editingteacher' => CAP_ALLOW,
-            'manager' => CAP_ALLOW,
-        ],
-    ],
+                 'block/mark_manager:manage' => [
+                                                 'riskbitmask' => RISK_SPAM | RISK_XSS,
+                                                 'captype' => 'write',
+                                                 'contextlevel' => CONTEXT_COURSE,
+                                                 'archetypes' => [
+                                                                  'editingteacher' => CAP_ALLOW,
+                                                                  'manager' => CAP_ALLOW,
+                                                                 ],
+                                                ],
 
-    'block/mark_manager:grade' => [
-        'captype' => 'write',
-        'contextlevel' => CONTEXT_COURSE,
-        'archetypes' => [
-            'editingteacher' => CAP_ALLOW,
-            'manager' => CAP_ALLOW,
-        ],
-    ],
-];
+                 'block/mark_manager:grade' => [
+                                                'captype' => 'write',
+                                                'contextlevel' => CONTEXT_COURSE,
+                                                'archetypes' => [
+                                                                 'editingteacher' => CAP_ALLOW,
+                                                                 'manager' => CAP_ALLOW,
+                                                                ],
+                                               ],
+                ];

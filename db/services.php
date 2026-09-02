@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Регистрация веб-сервисов блока "Менеджер оценивания".
+ * Registration of the web services of the "Mark Manager" block.
  *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
@@ -25,12 +25,14 @@
 defined('MOODLE_INTERNAL') || die();
 
 $functions = [
-    'block_mark_manager_save_submission_grade' => [
-        'classname'     => 'block_mark_manager\\external\\save_submission_grade',
-        'methodname'    => 'execute',
-        'description'   => 'Save a grade and feedback for a submission via the registry handler.',
-        'type'          => 'write',
-        'ajax'          => true,
-        'capabilities'  => 'block/mark_manager:grade',
-    ],
-];
+              'block_mark_manager_save_submission_grade' => [
+                                                             'classname'     => 'block_mark_manager\\external\\' .
+                                                                                'save_submission_grade',
+                                                             'methodname'    => 'execute',
+                                                             'description'   => 'Save a grade and feedback for a submission' .
+                                                                                ' via the registry handler.',
+                                                             'type'          => 'write',
+                                                             'ajax'          => true,
+                                                             'capabilities'  => 'block/mark_manager:grade',
+                                                            ],
+             ];

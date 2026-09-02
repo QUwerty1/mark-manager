@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Скрипт обновления структуры БД плагина «Менеджер оценивания».
+ * Database upgrade script of the "Mark Manager" plugin.
  *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
@@ -23,10 +23,10 @@
  */
 
 /**
- * Обновляет плагин.
+ * Upgrades the plugin.
  *
- * @param int $oldversion Старая версия плагина.
- * @return bool True при успехе.
+ * @param int $oldversion Old plugin version.
+ * @return bool True on success.
  */
 function xmldb_block_mark_manager_upgrade($oldversion) {
     global $DB;

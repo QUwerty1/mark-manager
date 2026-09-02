@@ -15,11 +15,11 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Обработчик типа работы «Тест» (mod_quiz).
+ * Submission type handler for quizzes (mod_quiz).
  *
- * Логика подсчёта адаптирована из ned-code/moodle-block_marking_manager.
- * Статус каждого эссе-вопроса определяется индивидуально по наличию
- * оценки (-mark) в question_attempt_step_data, а не по всей попытке.
+ * The counting logic is adapted from the ned-code/moodle-block_marking_manager
+ * project. The status of each essay question is determined individually by the
+ * presence of a mark (-mark) in question_attempt_step_data, not by the attempt.
  *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
@@ -41,32 +41,32 @@ use block_mark_manager\local\submission_handlers\submission_data;
 use block_mark_manager\local\submission_handlers\submission_handler_interface;
 
 /**
- * Обработчик тестов (quiz).
+ * Quiz (quiz) submission type handler.
  */
 class quiz_handler implements submission_handler_interface {
-
     /**
-     * Возвращает идентификатор типа.
+     * Returns the work type identifier.
      *
-     * @return string
+     * @return string Work type identifier.
      */
     public function get_type_identifier(): string {
         return 'quiz';
     }
 
     /**
-     * Количество непроверенных эссе-вопросов в курсе.
-     * Считает именно эссе без оценки, а не попытки.
+     * Returns the number of ungraded essay questions in the course.
+     * Counts essays without a grade, not attempts.
      *
-     * @param int $courseid
-     * @return int
+     * @param int $courseid Course ID.
+     * @return int Number of ungraded essay questions.
      */
     public function get_ungraded_count(int $courseid): int {
         global $DB;
 
-        // === ИСПРАВЛЕНИЕ: фильтруем пользователей по capability mod/quiz:attempt ===
         $coursecontext = context_course::instance($courseid);
-        list($esql, $eparams) = get_enrolled_sql($coursecontext, 'mod/quiz:attempt');
+        $enrolledsql   = get_enrolled_sql($coursecontext, 'mod/quiz:attempt');
+        $esql          = $enrolledsql[0];
+        $eparams       = $enrolledsql[1];
 
         $sql = "SELECT COUNT(DISTINCT CONCAT(qa.userid, '-', q.id, '-', qs.slot))
                   FROM {quiz} q
@@ -89,27 +89,28 @@ class quiz_handler implements submission_handler_interface {
                           AND qasd.name = :markfield
                    )";
 
-        $params = $eparams;
-        $params['courseid'] = $courseid;
+        $params                  = $eparams;
+        $params['courseid']      = $courseid;
         $params['statefinished'] = 'finished';
-        $params['qtype'] = 'essay';
-        $params['markfield'] = '-mark';
+        $params['qtype']         = 'essay';
+        $params['markfield']     = '-mark';
 
         return (int) $DB->count_records_sql($sql, $params);
     }
 
     /**
-     * Количество несданных тестов в курсе (зачисленные без завершённой попытки).
+     * Returns the number of unsubmitted quizzes in the course (enrolled users without a finished attempt).
      *
-     * @param int $courseid
-     * @return int
+     * @param int $courseid Course ID.
+     * @return int Number of unsubmitted quizzes.
      */
     public function get_unsubmitted_count(int $courseid): int {
         global $DB;
 
         $coursecontext = context_course::instance($courseid);
-        // === ИСПРАВЛЕНИЕ: только пользователи с capability сдачи теста ===
-        list($esql, $params) = get_enrolled_sql($coursecontext, 'mod/quiz:attempt');
+        $enrolledsql   = get_enrolled_sql($coursecontext, 'mod/quiz:attempt');
+        $esql          = $enrolledsql[0];
+        $params        = $enrolledsql[1];
 
         $sql = "SELECT COUNT(DISTINCT u.id)
                   FROM {user} u
@@ -128,25 +129,26 @@ class quiz_handler implements submission_handler_interface {
                           AND qa.preview = 0
                    )";
 
-        $params['courseid'] = $courseid;
+        $params['courseid']      = $courseid;
         $params['statefinished'] = 'finished';
 
         return (int) $DB->count_records_sql($sql, $params);
     }
 
     /**
-     * Количество оцененных эссе-вопросов в курсе.
-     * Считает именно эссе с оценкой, а не попытки.
+     * Returns the number of graded essay questions in the course.
+     * Counts essays with a grade, not attempts.
      *
-     * @param int $courseid
-     * @return int
+     * @param int $courseid Course ID.
+     * @return int Number of graded essay questions.
      */
     public function get_graded_count(int $courseid): int {
         global $DB;
 
-        // === ИСПРАВЛЕНИЕ: фильтруем пользователей по capability ===
         $coursecontext = context_course::instance($courseid);
-        list($esql, $eparams) = get_enrolled_sql($coursecontext, 'mod/quiz:attempt');
+        $enrolledsql   = get_enrolled_sql($coursecontext, 'mod/quiz:attempt');
+        $esql          = $enrolledsql[0];
+        $eparams       = $enrolledsql[1];
 
         $sql = "SELECT COUNT(DISTINCT CONCAT(qa.userid, '-', q.id, '-', qs.slot))
                   FROM {quiz} q
@@ -165,32 +167,32 @@ class quiz_handler implements submission_handler_interface {
                    AND qa.preview = 0
                    AND qasd.name = :markfield";
 
-        $params = $eparams;
-        $params['courseid'] = $courseid;
+        $params                  = $eparams;
+        $params['courseid']      = $courseid;
         $params['statefinished'] = 'finished';
-        $params['qtype'] = 'essay';
-        $params['markfield'] = '-mark';
+        $params['qtype']         = 'essay';
+        $params['markfield']     = '-mark';
 
         return (int) $DB->count_records_sql($sql, $params);
     }
 
     /**
-     * Возвращает список работ для блока.
-     * Статус каждого эссе определяется индивидуально.
+     * Returns the list of works for the block. The status of each essay is determined individually.
      *
-     * @param int $courseid
-     * @param array $filters
-     * @return submission_data[]
+     * @param int $courseid Course ID.
+     * @param array $filters Filters.
+     * @return submission_data[] List of works.
      */
     public function get_works_list(int $courseid, array $filters): array {
         global $DB;
 
         $coursecontext = context_course::instance($courseid);
-        // === ИСПРАВЛЕНИЕ: только пользователи с capability сдачи теста ===
-        // Это автоматически исключает преподавателей и менеджеров.
-        list($esql, $params) = get_enrolled_sql($coursecontext, 'mod/quiz:attempt');
+        $enrolledsql   = get_enrolled_sql($coursecontext, 'mod/quiz:attempt');
+        $esql          = $enrolledsql[0];
+        $params        = $enrolledsql[1];
 
-        $sql = "SELECT u.id AS userid, u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic, u.middlename, u.alternatename,
+        $sql = "SELECT u.id AS userid, u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic,
+                       u.middlename, u.alternatename,
                        q.id AS quizid, q.name AS quizname, q.timeclose, q.grade AS maxgrade,
                        cm.id AS cmid,
                        qa.id AS attemptid, qa.uniqueid, qa.sumgrades
@@ -205,7 +207,7 @@ class quiz_handler implements submission_handler_interface {
                    AND cm.deletioninprogress = 0
               ORDER BY q.timeclose ASC, u.lastname ASC, u.firstname ASC";
 
-        $params['courseid'] = $courseid;
+        $params['courseid']      = $courseid;
         $params['statefinished'] = 'finished';
 
         $records = $DB->get_records_sql($sql, $params);
@@ -229,8 +231,8 @@ class quiz_handler implements submission_handler_interface {
             }
         }
 
-        $works = [];
-        $quizessaycache = [];
+        $works            = [];
+        $quizessaycache   = [];
         $essaystatescache = [];
 
         foreach ($records as $r) {
@@ -239,14 +241,14 @@ class quiz_handler implements submission_handler_interface {
             }
             $cmid = $quizcms[$r->quizid];
 
-            $userobj = new stdClass();
-            $userobj->id = $r->userid;
-            $userobj->firstname = $r->firstname;
-            $userobj->lastname = $r->lastname;
+            $userobj                    = new stdClass();
+            $userobj->id                = $r->userid;
+            $userobj->firstname         = $r->firstname;
+            $userobj->lastname          = $r->lastname;
             $userobj->firstnamephonetic = $r->firstnamephonetic ?? '';
-            $userobj->lastnamephonetic = $r->lastnamephonetic ?? '';
-            $userobj->middlename = $r->middlename ?? '';
-            $userobj->alternatename = $r->alternatename ?? '';
+            $userobj->lastnamephonetic  = $r->lastnamephonetic ?? '';
+            $userobj->middlename        = $r->middlename ?? '';
+            $userobj->alternatename     = $r->alternatename ?? '';
 
             $fullname = fullname($userobj);
             if (!empty($filters['studentname'])) {
@@ -255,7 +257,6 @@ class quiz_handler implements submission_handler_interface {
                 }
             }
 
-            // === Несданная попытка: один элемент на тест/студента ===
             if ($r->attemptid === null) {
                 $status = 'unsubmitted';
 
@@ -273,15 +274,14 @@ class quiz_handler implements submission_handler_interface {
                     $status,
                     null,
                     [
-                        'quizid' => (int)$r->quizid,
-                        'quizname' => $r->quizname,
-                        'attemptid' => 0,
+                     'quizid' => (int)$r->quizid,
+                     'quizname' => $r->quizname,
+                     'attemptid' => 0,
                     ]
                 );
                 continue;
             }
 
-            // === Есть finished-попытка: отдельный элемент на каждое эссе ===
             if (!isset($quizessaycache[$r->quizid])) {
                 $quizessaycache[$r->quizid] = $this->get_quiz_essay_slots((int)$r->quizid);
             }
@@ -291,9 +291,8 @@ class quiz_handler implements submission_handler_interface {
                 continue;
             }
 
-            // Кэш состояний эссе для данной попытки (один запрос на все эссе попытки).
             if (!isset($essaystatescache[$r->uniqueid])) {
-                $slots = array_map(function ($e) {
+                $slots                          = array_map(function ($e) {
                     return (int)$e->slot;
                 }, array_values($essays));
                 $essaystatescache[$r->uniqueid] = $this->get_attempt_essay_states((int)$r->uniqueid, $slots);
@@ -303,19 +302,20 @@ class quiz_handler implements submission_handler_interface {
             $context = context_module::instance($cmid);
 
             foreach ($essays as $essay) {
-                $slot = (int)$essay->slot;
-                $state = $essaystates[$slot] ?? ['graded' => false, 'mark' => null];
+                $slot  = (int)$essay->slot;
+                $state = $essaystates[$slot] ?? [
+                                                 'graded' => false,
+                                                 'mark' => null,
+                                                ];
 
                 $status = $state['graded'] ? 'graded' : 'ungraded';
 
-                // Фильтрация по статусу.
                 if (!empty($filters['status']) && $filters['status'] !== $status) {
                     continue;
                 }
 
                 $response = $this->get_essay_response((int)$r->uniqueid, $slot, $context);
 
-                // === Превью текста вопроса ===
                 $questionpreview = $this->make_question_preview((string)($essay->questiontext ?? ''));
 
                 $works[] = new submission_data(
@@ -328,15 +328,15 @@ class quiz_handler implements submission_handler_interface {
                     $status,
                     $state['mark'],
                     [
-                        'quizid' => (int)$r->quizid,
-                        'quizname' => $r->quizname,
-                        'attemptid' => (int)$r->attemptid,
-                        'uniqueid' => (int)$r->uniqueid,
-                        'slot' => $slot,
-                        'questionid' => (int)$essay->questionid,
-                        'questionpreview' => $questionpreview,
-                        'essaytext' => $response['essaytext'],
-                        'files' => $response['files'],
+                     'quizid' => (int)$r->quizid,
+                     'quizname' => $r->quizname,
+                     'attemptid' => (int)$r->attemptid,
+                     'uniqueid' => (int)$r->uniqueid,
+                     'slot' => $slot,
+                     'questionid' => (int)$essay->questionid,
+                     'questionpreview' => $questionpreview,
+                     'essaytext' => $response['essaytext'],
+                     'files' => $response['files'],
                     ]
                 );
             }
@@ -353,26 +353,30 @@ class quiz_handler implements submission_handler_interface {
     }
 
     /**
-     * Возвращает состояния эссе (оценено/не оценено + оценка) для заданных слотов попытки
-     * одним SQL-запросом.
+     * Returns the essay states (graded/ungraded plus mark) for the given attempt slots in one SQL query.
      *
-     * @param int $uniqueid Идентификатор question usage попытки.
-     * @param int[] $slots Массив номеров слотов.
-     * @return array Массив вида [slot => ['graded' => bool, 'mark' => float|null]].
+     * @param int $uniqueid Question usage ID of the attempt.
+     * @param int[] $slots Array of slot numbers.
+     * @return array Array of the [slot => ['graded' => bool, 'mark' => float|null]] shape.
      */
     private function get_attempt_essay_states(int $uniqueid, array $slots): array {
         global $DB;
 
         $result = [];
         foreach ($slots as $slot) {
-            $result[$slot] = ['graded' => false, 'mark' => null];
+            $result[$slot] = [
+                              'graded' => false,
+                              'mark' => null,
+                             ];
         }
 
         if (empty($slots) || $uniqueid <= 0) {
             return $result;
         }
 
-        list($insql, $inparams) = $DB->get_in_or_equal($slots, SQL_PARAMS_NAMED);
+        $inequal  = $DB->get_in_or_equal($slots, SQL_PARAMS_NAMED);
+        $insql    = $inequal[0];
+        $inparams = $inequal[1];
 
         $sql = "SELECT qas.id,
                        qa.slot,
@@ -386,20 +390,18 @@ class quiz_handler implements submission_handler_interface {
                    AND qasd.name = :markfield
               ORDER BY qa.slot ASC, qas.sequencenumber DESC";
 
-        $inparams['quaid'] = $uniqueid;
+        $inparams['quaid']     = $uniqueid;
         $inparams['markfield'] = '-mark';
 
         $rows = $DB->get_recordset_sql($sql, $inparams);
 
         foreach ($rows as $row) {
             $slot = (int)$row->slot;
-            // Благодаря сортировке по sequencenumber DESC первой записью
-            // для каждого слота будет самая свежая оценка.
             if (isset($result[$slot]) && $result[$slot]['graded'] === false) {
                 $result[$slot] = [
-                    'graded' => true,
-                    'mark' => ($row->value !== null && $row->value !== '') ? (float)$row->value : null,
-                ];
+                                  'graded' => true,
+                                  'mark' => ($row->value !== null && $row->value !== '') ? (float)$row->value : null,
+                                 ];
             }
         }
         $rows->close();
@@ -408,12 +410,10 @@ class quiz_handler implements submission_handler_interface {
     }
 
     /**
-     * Возвращает эссе-вопросы теста (qtype = 'essay').
+     * Returns the essay questions of the quiz (qtype = 'essay').
      *
-     * Добавлена выборка questiontext для превью вопроса в списке.
-     *
-     * @param int $quizid
-     * @return array
+     * @param int $quizid Quiz ID.
+     * @return array Essay questions of the quiz.
      */
     private function get_quiz_essay_slots(int $quizid): array {
         global $DB;
@@ -424,16 +424,19 @@ class quiz_handler implements submission_handler_interface {
                JOIN {question} q ON q.id = qs.questionid
               WHERE qs.quizid = :quizid AND q.qtype = :qtype
               ORDER BY qs.slot ASC",
-            ['quizid' => $quizid, 'qtype' => 'essay']
+            [
+             'quizid' => $quizid,
+             'qtype' => 'essay',
+            ]
         );
     }
 
     /**
-     * Формирует короткое текстовое превью вопроса эссе (без HTML).
+     * Builds a short plain text preview of an essay question (without HTML).
      *
-     * @param string $questiontext HTML-текст вопроса.
-     * @param int $maxlength Максимальная длина превью.
-     * @return string
+     * @param string $questiontext HTML question text.
+     * @param int $maxlength Maximum preview length.
+     * @return string Question text preview.
      */
     private function make_question_preview(string $questiontext, int $maxlength = 100): string {
         $plain = trim(strip_tags($questiontext));
@@ -447,15 +450,15 @@ class quiz_handler implements submission_handler_interface {
     }
 
     /**
-     * Возвращает текст эссе-ответа и прикреплённые файлы для слота попытки.
+     * Returns the essay response text and attached files for an attempt slot.
      *
-     * ВАЖНО: в эссе-вопросах Moodle текст ответа хранится в поле 'answer',
-     * а не в '-response'. Формат текста хранится в 'answerformat'.
+     * In Moodle essay questions the response text is stored in the 'answer'
+     * field, not in '-response'. The text format is stored in 'answerformat'.
      *
-     * @param int $uniqueid
-     * @param int $slot
-     * @param context_module $context
-     * @return array ['essaytext' => string, 'files' => array]
+     * @param int $uniqueid Question usage ID of the attempt.
+     * @param int $slot Slot number.
+     * @param context_module $context Context of the course module.
+     * @return array Array with the 'essaytext' and 'files' keys.
      */
     private function get_essay_response(int $uniqueid, int $slot, context_module $context): array {
         global $DB;
@@ -464,14 +467,16 @@ class quiz_handler implements submission_handler_interface {
             "SELECT id
                FROM {question_attempts}
               WHERE questionusageid = :quaid AND slot = :slot",
-            ['quaid' => $uniqueid, 'slot' => $slot]
+            [
+             'quaid' => $uniqueid,
+             'slot' => $slot,
+            ]
         );
 
         $essaytext = '';
-        $files = [];
+        $files     = [];
 
         if ($qaid) {
-            // === Читаем текст эссе из поля 'answer' ===
             $answerdata = $DB->get_records_sql(
                 "SELECT qasd.name, qasd.value
                    FROM {question_attempt_steps} qas
@@ -482,7 +487,7 @@ class quiz_handler implements submission_handler_interface {
                 ['qaid' => $qaid]
             );
 
-            $rawtext = '';
+            $rawtext      = '';
             $answerformat = FORMAT_HTML;
 
             foreach ($answerdata as $row) {
@@ -495,14 +500,10 @@ class quiz_handler implements submission_handler_interface {
             }
 
             if ($rawtext !== '' && trim(strip_tags($rawtext)) !== '') {
-                $essaytext = format_text($rawtext, $answerformat, [
-                    'context' => $context,
-                    'noclean' => true,
-                ]);
+                $essaytext = format_text($rawtext, $answerformat, (object)['context' => $context, 'noclean' => true]);
             }
 
-            // === Прикреплённые файлы ===
-            $fs = get_file_storage();
+            $fs        = get_file_storage();
             $areafiles = $fs->get_area_files(
                 $context->id,
                 'question',
@@ -513,102 +514,97 @@ class quiz_handler implements submission_handler_interface {
             );
             foreach ($areafiles as $file) {
                 $files[] = [
-                    'filename' => $file->get_filename(),
-                    'url' => moodle_url::make_pluginfile_url(
-                        $file->get_contextid(),
-                        $file->get_component(),
-                        $file->get_filearea(),
-                        $file->get_itemid(),
-                        $file->get_filepath(),
-                        $file->get_filename()
-                    )->out(false),
-                    'mimetype' => $file->get_mimetype(),
-                ];
+                            'filename' => $file->get_filename(),
+                            'url' => moodle_url::make_pluginfile_url(
+                                $file->get_contextid(),
+                                $file->get_component(),
+                                $file->get_filearea(),
+                                $file->get_itemid(),
+                                $file->get_filepath(),
+                                $file->get_filename()
+                            )->out(false),
+                            'mimetype' => $file->get_mimetype(),
+                           ];
             }
         }
 
-        return ['essaytext' => $essaytext, 'files' => $files];
+        return [
+                'essaytext' => $essaytext,
+                'files' => $files,
+               ];
     }
 
     /**
-     * Возвращает имя Mustache-шаблона оценивания теста.
+     * Returns the name of the quiz grading Mustache template.
      *
-     * @return string
+     * @return string Template name.
      */
     public function get_grading_template_name(): string {
         return 'block_mark_manager/grading_quiz';
     }
 
     /**
-     * Возвращает контекст для шаблона оценивания эссе-вопроса теста.
+     * Returns the context for the quiz essay grading template.
      *
-     * === ИСПРАВЛЕНИЕ: slot теперь опциональный ===
-     * При slot = 0 (несданная работа) возвращаем контекст с issubmitted=false,
-     * чтобы шаблон показал предупреждение вместо формы оценки.
+     * When slot = 0 (unsubmitted work) the returned context has issubmitted = false
+     * so that the template shows a warning instead of the grading form.
      *
-     * @param int $workid Идентификатор экземпляра (cmid).
-     * @param int $userid
-     * @param array $params Дополнительные параметры (например, 'slot').
-     * @return array
+     * @param int $workid Instance ID (cmid).
+     * @param int $userid Student ID.
+     * @param array $params Extra parameters (for example, 'slot').
+     * @return array Template context.
      */
     public function get_grading_template_context(int $workid, int $userid, array $params = []): array {
         global $DB;
 
         $slot = (int)($params['slot'] ?? 0);
 
-        $cm = get_coursemodule_from_id('quiz', $workid, 0, false, MUST_EXIST);
+        $cm      = get_coursemodule_from_id('quiz', $workid, 0, false, MUST_EXIST);
         $context = context_module::instance($cm->id);
-        $quiz = $DB->get_record('quiz', ['id' => $cm->instance], '*', MUST_EXIST);
+        $quiz    = $DB->get_record('quiz', ['id' => $cm->instance], '*', MUST_EXIST);
 
         $attempt = $DB->get_record('quiz_attempts', [
-            'quiz' => $quiz->id,
-            'userid' => $userid,
-            'state' => 'finished',
-            'preview' => 0,
-        ], '*', IGNORE_MULTIPLE);
+                                                     'quiz' => $quiz->id,
+                                                     'userid' => $userid,
+                                                     'state' => 'finished',
+                                                     'preview' => 0,
+                                                    ], '*', IGNORE_MULTIPLE);
 
-        // === Если нет завершённой попытки ИЛИ нет slot — показываем предупреждение ===
         $issubmitted = !empty($attempt) && $slot > 0;
 
         $user = core_user::get_user($userid);
 
-        // === Базовый контекст (доступен во всех случаях) ===
         $templatecontext = [
-            'studentname' => fullname($user),
-            'workname' => $quiz->name,
-            'issubmitted' => $issubmitted,
-        ];
+                            'studentname' => fullname($user),
+                            'workname' => $quiz->name,
+                            'issubmitted' => $issubmitted,
+                           ];
 
-        // === Отформатированная дата ===
         $duedateformatted = '';
         if (!empty($quiz->timeclose)) {
             $duedateformatted = userdate($quiz->timeclose, get_string('strftimedaydatetime', 'core_langconfig'));
         }
-        $templatecontext['duedate'] = (int)$quiz->timeclose;
+        $templatecontext['duedate']          = (int)$quiz->timeclose;
         $templatecontext['duedateformatted'] = $duedateformatted;
-        $templatecontext['hasduedate'] = !empty($quiz->timeclose);
+        $templatecontext['hasduedate']       = !empty($quiz->timeclose);
 
-        // === Если работа не сдана — возвращаем минимальный контекст ===
         if (!$issubmitted) {
             return $templatecontext;
         }
 
-        // === Данные конкретного эссе-вопроса ===
         $slotrecord = $DB->get_record('quiz_slots', ['quizid' => $quiz->id, 'slot' => $slot], '*', MUST_EXIST);
-        $question = $DB->get_record('question', ['id' => $slotrecord->questionid], '*', MUST_EXIST);
+        $question   = $DB->get_record('question', ['id' => $slotrecord->questionid], '*', MUST_EXIST);
 
         $maxmark = (float)$slotrecord->maxmark;
 
-        // === Полный текст вопроса с обработкой файлов ===
-        $questiontext = '';
+        $questiontext    = '';
         $hasquestiontext = false;
         if (!empty($question->questiontext)) {
-            // Получаем контекст категории вопроса для корректного отображения файлов.
             $category = $DB->get_record('question_categories', ['id' => $question->category]);
             if ($category) {
                 try {
                     $questioncontext = \context::instance_by_id($category->contextid);
-                    $rewritetext = file_rewrite_pluginfile_urls(
+                    $rewritetext     = file_rewrite_pluginfile_urls(
                         $question->questiontext,
                         'pluginfile.php',
                         $questioncontext->id,
@@ -616,18 +612,16 @@ class quiz_handler implements submission_handler_interface {
                         'questiontext',
                         $question->id
                     );
-                    $questiontext = format_text($rewritetext, $question->questiontextformat, [
-                        'noclean' => true,
-                    ]);
+                    $questiontext    = format_text($rewritetext, $question->questiontextformat, (object)['noclean' => true]);
                 } catch (Exception $e) {
-                    $questiontext = format_text($question->questiontext, $question->questiontextformat, [
-                        'noclean' => true,
-                    ]);
+                    $questiontext = format_text(
+                        $question->questiontext,
+                        $question->questiontextformat,
+                        (object)['noclean' => true]
+                    );
                 }
             } else {
-                $questiontext = format_text($question->questiontext, $question->questiontextformat, [
-                    'noclean' => true,
-                ]);
+                $questiontext = format_text($question->questiontext, $question->questiontextformat, (object)['noclean' => true]);
             }
 
             if (trim(strip_tags($questiontext)) !== '') {
@@ -635,23 +629,25 @@ class quiz_handler implements submission_handler_interface {
             }
         }
 
-        $mark = null;
-        $essaytext = '';
+        $mark              = null;
+        $essaytext         = '';
         $hassubmissiontext = false;
-        $files = [];
-        $hasfiles = false;
-        $feedback = '';
+        $files             = [];
+        $hasfiles          = false;
+        $feedback          = '';
 
         if ($attempt) {
             $qaid = $DB->get_field_sql(
                 "SELECT id
                    FROM {question_attempts}
                   WHERE questionusageid = :quaid AND slot = :slot",
-                ['quaid' => $attempt->uniqueid, 'slot' => $slot]
+                [
+                 'quaid' => $attempt->uniqueid,
+                 'slot' => $slot,
+                ]
             );
 
             if ($qaid) {
-                // Текущая оценка за вопрос.
                 $markstr = $DB->get_field_sql(
                     "SELECT qasd.value
                        FROM {question_attempt_steps} qas
@@ -659,13 +655,15 @@ class quiz_handler implements submission_handler_interface {
                       WHERE qas.questionattemptid = :qaid AND qasd.name = :markfield
                       ORDER BY qas.sequencenumber DESC
                       LIMIT 1",
-                    ['qaid' => $qaid, 'markfield' => '-mark']
+                    [
+                     'qaid' => $qaid,
+                     'markfield' => '-mark',
+                    ]
                 );
                 if ($markstr !== false && $markstr !== null && $markstr !== '') {
                     $mark = (float)$markstr;
                 }
 
-                // === ИСПРАВЛЕНИЕ: читаем текст эссе из поля 'answer' ===
                 $answerdata = $DB->get_records_sql(
                     "SELECT qasd.name, qasd.value
                        FROM {question_attempt_steps} qas
@@ -676,7 +674,7 @@ class quiz_handler implements submission_handler_interface {
                     ['qaid' => $qaid]
                 );
 
-                $rawtext = '';
+                $rawtext      = '';
                 $answerformat = FORMAT_HTML;
 
                 foreach ($answerdata as $row) {
@@ -689,15 +687,14 @@ class quiz_handler implements submission_handler_interface {
                 }
 
                 if ($rawtext !== '' && trim(strip_tags($rawtext)) !== '') {
-                    $essaytext = format_text($rawtext, $answerformat, [
-                        'context' => $context,
-                        'noclean' => true,
-                    ]);
+                    $essaytext         = format_text($rawtext, $answerformat, (object) [
+                                                                                        'context' => $context,
+                                                                                        'noclean' => true,
+                                                                                       ]);
                     $hassubmissiontext = true;
                 }
 
-                // Прикреплённые файлы.
-                $fs = get_file_storage();
+                $fs        = get_file_storage();
                 $areafiles = $fs->get_area_files(
                     $context->id,
                     'question',
@@ -708,21 +705,20 @@ class quiz_handler implements submission_handler_interface {
                 );
                 foreach ($areafiles as $file) {
                     $hasfiles = true;
-                    $files[] = [
-                        'filename' => $file->get_filename(),
-                        'url' => moodle_url::make_pluginfile_url(
-                            $file->get_contextid(),
-                            $file->get_component(),
-                            $file->get_filearea(),
-                            $file->get_itemid(),
-                            $file->get_filepath(),
-                            $file->get_filename()
-                        )->out(false),
-                        'mimetype' => $file->get_mimetype(),
-                    ];
+                    $files[]  = [
+                                 'filename' => $file->get_filename(),
+                                 'url' => moodle_url::make_pluginfile_url(
+                                     $file->get_contextid(),
+                                     $file->get_component(),
+                                     $file->get_filearea(),
+                                     $file->get_itemid(),
+                                     $file->get_filepath(),
+                                     $file->get_filename()
+                                 )->out(false),
+                                 'mimetype' => $file->get_mimetype(),
+                                ];
                 }
 
-                // Комментарий к эссе (если есть).
                 $feedbackstr = $DB->get_field_sql(
                     "SELECT qasd.value
                        FROM {question_attempt_steps} qas
@@ -730,7 +726,10 @@ class quiz_handler implements submission_handler_interface {
                       WHERE qas.questionattemptid = :qaid AND qasd.name = :feedbackfield
                       ORDER BY qas.sequencenumber DESC
                       LIMIT 1",
-                    ['qaid' => $qaid, 'feedbackfield' => '-comment']
+                    [
+                     'qaid' => $qaid,
+                     'feedbackfield' => '-comment',
+                    ]
                 );
                 if ($feedbackstr !== false && $feedbackstr !== null) {
                     $feedback = (string)$feedbackstr;
@@ -745,40 +744,40 @@ class quiz_handler implements submission_handler_interface {
 
         $gradingurl = '';
         if ($attempt) {
-            $reviewurl = new moodle_url('/mod/quiz/reviewquestion.php', [
-                'attempt' => $attempt->id,
-                'slot' => $slot,
-            ]);
+            $reviewurl  = new moodle_url('/mod/quiz/reviewquestion.php', [
+                                                                          'attempt' => $attempt->id,
+                                                                          'slot' => $slot,
+                                                                         ]);
             $gradingurl = $reviewurl->out(false);
         }
 
-        $templatecontext['questionname'] = $question->name;
-        $templatecontext['questiontext'] = $questiontext;
-        $templatecontext['hasquestiontext'] = $hasquestiontext;
-        $templatecontext['slot'] = $slot;
-        $templatecontext['mark'] = $mark;
-        $templatecontext['hasmark'] = $mark !== null;
-        $templatecontext['maxmark'] = $maxmark;
-        $templatecontext['essaytext'] = $essaytext;
+        $templatecontext['questionname']      = $question->name;
+        $templatecontext['questiontext']      = $questiontext;
+        $templatecontext['hasquestiontext']   = $hasquestiontext;
+        $templatecontext['slot']              = $slot;
+        $templatecontext['mark']              = $mark;
+        $templatecontext['hasmark']           = $mark !== null;
+        $templatecontext['maxmark']           = $maxmark;
+        $templatecontext['essaytext']         = $essaytext;
         $templatecontext['hassubmissiontext'] = $hassubmissiontext;
-        $templatecontext['files'] = $files;
-        $templatecontext['hasfiles'] = $hasfiles;
-        $templatecontext['feedback'] = $feedback;
-        $templatecontext['gradingurl'] = $gradingurl;
+        $templatecontext['files']             = $files;
+        $templatecontext['hasfiles']          = $hasfiles;
+        $templatecontext['feedback']          = $feedback;
+        $templatecontext['gradingurl']        = $gradingurl;
 
         return $templatecontext;
     }
 
     /**
-     * Сохраняет оценку и комментарий для конкретного эссе-вопроса.
+     * Saves the grade and the feedback for a specific essay question.
      *
-     * @param int $workid Идентификатор экземпляра (cmid).
-     * @param int $userid
-     * @param float $grade Оценка за эссе.
-     * @param string $feedback Комментарий к эссе.
-     * @param array $options Должен содержать 'slot'.
-     * @return bool
-     * @throws \moodle_exception
+     * @param int $workid Instance ID (cmid).
+     * @param int $userid Student ID.
+     * @param float $grade Essay grade.
+     * @param string $feedback Essay feedback text.
+     * @param array $options Must contain the 'slot' key.
+     * @return bool True on success.
+     * @throws \moodle_exception When the slot is missing or invalid or the attempt is not finished.
      */
     public function save_grade(int $workid, int $userid, float $grade, string $feedback, array $options = []): bool {
         global $CFG, $DB;
@@ -791,15 +790,15 @@ class quiz_handler implements submission_handler_interface {
             throw new \moodle_exception('missingslot', 'block_mark_manager');
         }
 
-        $cm = get_coursemodule_from_id('quiz', $workid, 0, false, MUST_EXIST);
+        $cm   = get_coursemodule_from_id('quiz', $workid, 0, false, MUST_EXIST);
         $quiz = $DB->get_record('quiz', ['id' => $cm->instance], '*', MUST_EXIST);
 
         $attempt = $DB->get_record('quiz_attempts', [
-            'quiz' => $quiz->id,
-            'userid' => $userid,
-            'state' => 'finished',
-            'preview' => 0,
-        ], '*', IGNORE_MULTIPLE);
+                                                     'quiz' => $quiz->id,
+                                                     'userid' => $userid,
+                                                     'state' => 'finished',
+                                                     'preview' => 0,
+                                                    ], '*', IGNORE_MULTIPLE);
 
         if (!$attempt) {
             throw new \moodle_exception(
@@ -820,7 +819,6 @@ class quiz_handler implements submission_handler_interface {
 
         $qa = $quba->get_question_attempt($slot);
 
-        // Правильный порядок параметров: (комментарий, оценка, формат комментария).
         $qa->manual_grade($feedback, $grade, FORMAT_HTML);
 
         \question_engine::save_questions_usage_by_activity($quba);

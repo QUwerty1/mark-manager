@@ -15,25 +15,23 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Библиотечные функции блока "Менеджер оценивания".
+ * Library functions of the "Mark Manager" block.
  *
- * Moodle Fragment API вызывает функции вида {component}_output_fragment_{callback}.
- * Аргументы из JS приходят напрямую в $args (не во вложенном 'args').
- * Moodle автоматически устанавливает контекст, тему и $PAGE перед вызовом,
- * поэтому ВНУТРИ функций НЕЛЬЗЯ вызывать $PAGE->set_context/set_course.
+ * The Moodle Fragment API calls functions named {component}_output_fragment_{callback}.
+ * Arguments from JS arrive directly in $args (not nested in 'args').
+ * Moodle sets the context, theme and $PAGE automatically before the call,
+ * so $PAGE->set_context/set_course must NOT be called inside the functions.
  *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 use block_mark_manager\local\submission_handler_registry;
 use block_mark_manager\local\submission_handlers;
 
 /**
- * Регистрирует стандартные обработчики типов работ в Реестре.
+ * Registers the default submission handlers in the registry.
  *
  * @return void
  */
@@ -49,10 +47,10 @@ function block_mark_manager_register_handlers(): void {
 }
 
 /**
- * Иерархическая проверка прав доступа к блоку для заданного курса.
+ * Checks hierarchical access to the block for the given course.
  *
- * @param int $courseid Идентификатор курса.
- * @return bool
+ * @param int $courseid Course ID.
+ * @return bool True when the user can access the block.
  */
 function block_mark_manager_user_can_access(int $courseid): bool {
     global $USER, $DB;
@@ -86,16 +84,16 @@ function block_mark_manager_user_can_access(int $courseid): bool {
     }
 
     return $DB->record_exists('block_mark_manager_access', [
-        'courseid' => $courseid,
-        'userid' => $USER->id,
-    ]);
+                                                            'courseid' => $courseid,
+                                                            'userid' => $USER->id,
+                                                           ]);
 }
 
 /**
- * ФРАГМЕНТ: список работ (callback = 'work_list').
+ * Fragment callback for the works list (callback = 'work_list').
  *
- * @param array|stdClass $args Аргументы фрагмента (courseid, filters).
- * @return string HTML-содержимое фрагмента.
+ * @param array|stdClass $args Fragment arguments (courseid, filters).
+ * @return string Fragment HTML content.
  */
 function block_mark_manager_output_fragment_work_list($args): string {
     global $OUTPUT;
@@ -105,7 +103,7 @@ function block_mark_manager_output_fragment_work_list($args): string {
             $args = (array)$args;
         }
 
-        $courseid = clean_param($args['courseid'] ?? 0, PARAM_INT);
+        $courseid    = clean_param($args['courseid'] ?? 0, PARAM_INT);
         $filtersjson = $args['filters'] ?? '{}';
 
         if (is_string($filtersjson)) {
@@ -128,46 +126,41 @@ function block_mark_manager_output_fragment_work_list($args): string {
 
         $allworks = $registry->aggregate_works_list($courseid, $filters);
 
-        // Подготавливаем данные для шаблона.
         $templateworks = [];
         foreach ($allworks as $work) {
             $options = $work->options ?? [];
 
-            // Имя для группировки: для эссе — название квиза, для остальных — название работы.
             $groupname = $options['quizname'] ?? $work->workname;
 
-            // Превью вопроса эссе (если есть).
             $questionpreview = $options['questionpreview'] ?? '';
 
             $templateworks[] = [
-                'typeidentifier' => $work->typeidentifier,
-                'workid' => $work->workid,
-                'userid' => $work->userid,
-                'studentname' => $work->studentname,
-                'workname' => $work->workname,
-                'groupname' => $groupname,
-                'duedate' => $work->duedate,
-                'status' => $work->status,
-                'grade' => $work->grade,
-                'slot' => $options['slot'] ?? null,
-                'questionpreview' => $questionpreview,
-                'hasquestionpreview' => ($questionpreview !== ''),
-                'status_ungraded' => ($work->status === 'ungraded'),
-                'status_unsubmitted' => ($work->status === 'unsubmitted'),
-                'status_graded' => ($work->status === 'graded'),
-            ];
+                                'typeidentifier' => $work->typeidentifier,
+                                'workid' => $work->workid,
+                                'userid' => $work->userid,
+                                'studentname' => $work->studentname,
+                                'workname' => $work->workname,
+                                'groupname' => $groupname,
+                                'duedate' => $work->duedate,
+                                'status' => $work->status,
+                                'grade' => $work->grade,
+                                'slot' => $options['slot'] ?? null,
+                                'questionpreview' => $questionpreview,
+                                'hasquestionpreview' => ($questionpreview !== ''),
+                                'status_ungraded' => ($work->status === 'ungraded'),
+                                'status_unsubmitted' => ($work->status === 'unsubmitted'),
+                                'status_graded' => ($work->status === 'graded'),
+                               ];
         }
 
-        // === ГРУППИРОВКА ===
-        $groupby = $filters['groupby'] ?? 'none';
+        $groupby        = $filters['groupby'] ?? 'none';
         $templategroups = block_mark_manager_group_works($courseid, $templateworks, $groupby);
 
         return $OUTPUT->render_from_template('block_mark_manager/work_list', [
-            'groups' => $templategroups,
-            'hasgroups' => !empty($templategroups),
-            'isgrouped' => ($groupby !== 'none'),
-        ]);
-
+                                                                              'groups' => $templategroups,
+                                                                              'hasgroups' => !empty($templategroups),
+                                                                              'isgrouped' => ($groupby !== 'none'),
+                                                                             ]);
     } catch (Exception $e) {
         return '<div class="alert alert-danger"><strong>Error:</strong> ' . s($e->getMessage()) . '</div>';
     } catch (Error $e) {
@@ -176,32 +169,28 @@ function block_mark_manager_output_fragment_work_list($args): string {
 }
 
 /**
- * Группирует работы по заданию или по группе.
+ * Groups works by assignment or by student group.
  *
- * @param int $courseid Идентификатор курса.
- * @param array $templateworks Массив подготовленных работ.
- * @param string $groupby Режим группировки: 'none', 'assignment', 'group'.
- * @return array Массив групп для шаблона.
+ * @param int $courseid Course ID.
+ * @param array $templateworks Array of prepared works.
+ * @param string $groupby Grouping mode: 'none', 'assignment' or 'group'.
+ * @return array Array of groups for the template.
  */
 function block_mark_manager_group_works(int $courseid, array $templateworks, string $groupby): array {
-    // Без группировки — одна «группа» без имени.
     if ($groupby === 'none') {
         return [
-            [
-                'groupname' => '',
-                'hasname' => false,
-                'count' => count($templateworks),
-                'works' => $templateworks,
-            ],
-        ];
+                [
+                 'groupname' => '',
+                 'hasname' => false,
+                 'count' => count($templateworks),
+                 'works' => $templateworks,
+                ],
+               ];
     }
 
     $grouped = [];
 
     if ($groupby === 'assignment') {
-        // Группировка по названию работы (задания/теста).
-        // Для эссе используется название квиза (поле 'groupname'),
-        // поэтому все эссе одного теста группируются вместе.
         foreach ($templateworks as $work) {
             $key = $work['groupname'];
             if (!isset($grouped[$key])) {
@@ -210,37 +199,31 @@ function block_mark_manager_group_works(int $courseid, array $templateworks, str
             $grouped[$key][] = $work;
         }
         ksort($grouped, SORT_LOCALE_STRING);
-
     } else if ($groupby === 'group') {
-        // Группировка по группе студента.
-        $nogroupname = get_string('nogroup', 'block_mark_manager');
+        $nogroupname     = get_string('nogroup', 'block_mark_manager');
         $usergroupscache = [];
-        $groupnamecache = [];
+        $groupnamecache  = [];
 
         foreach ($templateworks as $work) {
             $userid = (int)$work['userid'];
 
-            // Кэш групп пользователя в курсе.
             if (!isset($usergroupscache[$userid])) {
                 $usergroupscache[$userid] = groups_get_user_groups($courseid, $userid);
             }
             $usergroups = $usergroupscache[$userid];
 
-            // groups_get_user_groups возвращает [0 => группы, 1 => группировки].
             $groupid = 0;
             if (!empty($usergroups[0])) {
                 $groupid = (int)reset($usergroups[0]);
             }
 
             if ($groupid > 0) {
-                // Кэш имён групп.
                 if (!isset($groupnamecache[$groupid])) {
-                    $group = groups_get_group($groupid);
+                    $group                    = groups_get_group($groupid);
                     $groupnamecache[$groupid] = $group ? $group->name : $nogroupname;
                 }
                 $key = $groupnamecache[$groupid];
             } else {
-                // Пользователь без группы (в т.ч. добавленный индивидуально).
                 $key = $nogroupname;
             }
 
@@ -250,7 +233,6 @@ function block_mark_manager_group_works(int $courseid, array $templateworks, str
             $grouped[$key][] = $work;
         }
 
-        // Сортируем: обычные группы по алфавиту, «Без группы» — в конце.
         $nogrouplist = [];
         if (isset($grouped[$nogroupname])) {
             $nogrouplist = $grouped[$nogroupname];
@@ -262,25 +244,24 @@ function block_mark_manager_group_works(int $courseid, array $templateworks, str
         }
     }
 
-    // Формируем итоговый массив групп.
     $result = [];
     foreach ($grouped as $groupname => $works) {
         $result[] = [
-            'groupname' => $groupname,
-            'hasname' => true,
-            'count' => count($works),
-            'works' => $works,
-        ];
+                     'groupname' => $groupname,
+                     'hasname' => true,
+                     'count' => count($works),
+                     'works' => $works,
+                    ];
     }
 
     return $result;
 }
 
 /**
- * ФРАГМЕНТ: UI оценивания работы (callback = 'grade_work').
+ * Fragment callback for the grading UI (callback = 'grade_work').
  *
- * @param array|stdClass $args Аргументы фрагмента (type, workid, userid, slot).
- * @return string HTML-содержимое фрагмента.
+ * @param array|stdClass $args Fragment arguments (type, workid, userid, slot).
+ * @return string Fragment HTML content.
  */
 function block_mark_manager_output_fragment_grade_work($args): string {
     global $DB, $OUTPUT;
@@ -290,16 +271,16 @@ function block_mark_manager_output_fragment_grade_work($args): string {
             $args = (array)$args;
         }
 
-        $type = clean_param($args['type'] ?? '', PARAM_ALPHANUMEXT);
+        $type   = clean_param($args['type'] ?? '', PARAM_ALPHANUMEXT);
         $workid = clean_param($args['workid'] ?? 0, PARAM_INT);
         $userid = clean_param($args['userid'] ?? 0, PARAM_INT);
-        $slot = clean_param($args['slot'] ?? 0, PARAM_INT);
+        $slot   = clean_param($args['slot'] ?? 0, PARAM_INT);
 
         if ($workid <= 0 || $userid <= 0 || $type === '') {
             return '<div class="alert alert-danger">Missing required parameters</div>';
         }
 
-        $cm = get_coursemodule_from_id('', $workid, 0, false, MUST_EXIST);
+        $cm     = get_coursemodule_from_id('', $workid, 0, false, MUST_EXIST);
         $course = get_course($cm->course);
 
         require_login($course, true, $cm);
@@ -311,7 +292,7 @@ function block_mark_manager_output_fragment_grade_work($args): string {
 
         block_mark_manager_register_handlers();
         $registry = submission_handler_registry::instance();
-        $handler = $registry->get_handler($type);
+        $handler  = $registry->get_handler($type);
 
         if ($handler === null) {
             return '<div class="alert alert-danger">Unknown type: ' . s($type) . '</div>';
@@ -319,7 +300,6 @@ function block_mark_manager_output_fragment_grade_work($args): string {
 
         $templatename = $handler->get_grading_template_name();
 
-        // Передаём slot в контекст для эссе-вопросов теста.
         $params = [];
         if ($type === 'quiz' && $slot > 0) {
             $params['slot'] = $slot;
@@ -328,11 +308,10 @@ function block_mark_manager_output_fragment_grade_work($args): string {
         $templatecontext = $handler->get_grading_template_context($workid, $userid, $params);
 
         $templatecontext['typeidentifier'] = $type;
-        $templatecontext['workid'] = $workid;
-        $templatecontext['userid'] = $userid;
+        $templatecontext['workid']         = $workid;
+        $templatecontext['userid']         = $userid;
 
         return $OUTPUT->render_from_template($templatename, $templatecontext);
-
     } catch (Exception $e) {
         return '<div class="alert alert-danger"><strong>Error:</strong> ' . s($e->getMessage()) . '</div>';
     } catch (Error $e) {

@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Форма настроек экземпляра блока "Менеджер оценивания.
+ * Instance settings form of the "Mark Manager" block.
  *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
@@ -28,13 +28,13 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot . '/blocks/edit_form.php');
 
 /**
- * Форма настроек экземпляра блока.
+ * The "Mark Manager" block instance settings form.
  */
 class block_mark_manager_edit_form extends block_edit_form {
     /**
-     * Специфические настройки экземпляра блока.
+     * Adds the block instance specific settings.
      *
-     * @param MoodleQuickForm $mform
+     * @param MoodleQuickForm $mform Form to add the elements to.
      * @return void
      */
     protected function specific_definition($mform) {
@@ -68,9 +68,9 @@ class block_mark_manager_edit_form extends block_edit_form {
         );
 
         $url = new moodle_url('/blocks/mark_manager/manage_access.php', [
-            'blockid' => $this->block->instance->id,
-            'courseid' => $this->page->course->id,
-        ]);
+                                                                         'blockid' => $this->block->instance->id,
+                                                                         'courseid' => $this->page->course->id,
+                                                                        ]);
 
         $link = html_writer::link(
             $url,
@@ -82,14 +82,11 @@ class block_mark_manager_edit_form extends block_edit_form {
     }
 
     /**
-     * Проверка, имеет ли пользователь право управлять индивидуальным доступом.
+     * Checks whether the user may manage individual access to the block.
      *
-     * 1) Администраторы сайта — всегда имеют доступ.
-     * 2) Пользователи с ролями из настройки manageroles — имеют доступ.
-     *
-     * @param context_course $context
-     * @param int $userid
-     * @return bool
+     * @param context_course $context Course context.
+     * @param int $userid User ID.
+     * @return bool True when the user may manage individual access.
      */
     private function can_manage_access($context, $userid) {
         if (is_siteadmin($userid)) {
@@ -102,7 +99,7 @@ class block_mark_manager_edit_form extends block_edit_form {
         }
 
         $allowedroleids = explode(',', $manageroles);
-        $userroles = get_user_roles($context, $userid);
+        $userroles      = get_user_roles($context, $userid);
 
         foreach ($userroles as $role) {
             if (in_array($role->roleid, $allowedroleids)) {

@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Веб-сервис сохранения оценки работы.
+ * Web service for saving the grade of a submission.
  *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
@@ -39,12 +39,13 @@ use block_mark_manager\local\submission_handlers\assign_handler;
 use block_mark_manager\local\submission_handlers\quiz_handler;
 
 /**
- * Веб-сервис сохранения оценки.
+ * Web service for saving a submission grade.
  */
 class save_submission_grade extends external_api {
-
     /**
-     * Регистрация обработчиков типов работ в реестре.
+     * Registers the submission handlers in the registry.
+     *
+     * @return void
      */
     protected static function register_handlers(): void {
         $registry = submission_handler_registry::instance();
@@ -58,58 +59,58 @@ class save_submission_grade extends external_api {
     }
 
     /**
-     * Описание параметров веб-сервиса.
+     * Returns the description of the web service parameters.
      *
      * @return external_function_parameters
      */
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'type' => new external_value(
-                PARAM_ALPHANUMEXT,
-                'Тип работы (assign, quiz и т.д.)',
-                VALUE_REQUIRED
-            ),
-            'workid' => new external_value(
-                PARAM_INT,
-                'ID экземпляра модуля курса (cmid)',
-                VALUE_REQUIRED
-            ),
-            'userid' => new external_value(
-                PARAM_INT,
-                'ID студента',
-                VALUE_REQUIRED
-            ),
-            'grade' => new external_value(
-                PARAM_FLOAT,
-                'Оценка',
-                VALUE_DEFAULT,
-                null
-            ),
-            'feedback' => new external_value(
-                PARAM_RAW,
-                'Комментарий (HTML)',
-                VALUE_DEFAULT,
-                ''
-            ),
-            'options' => new external_value(
-                PARAM_RAW,
-                'Дополнительные опции (JSON-строка)',
-                VALUE_DEFAULT,
-                '{}'
-            ),
-        ]);
+                                                 'type' => new external_value(
+                                                     PARAM_ALPHANUMEXT,
+                                                     'Тип работы (assign, quiz и т.д.)',
+                                                     VALUE_REQUIRED
+                                                 ),
+                                                 'workid' => new external_value(
+                                                     PARAM_INT,
+                                                     'ID экземпляра модуля курса (cmid)',
+                                                     VALUE_REQUIRED
+                                                 ),
+                                                 'userid' => new external_value(
+                                                     PARAM_INT,
+                                                     'ID студента',
+                                                     VALUE_REQUIRED
+                                                 ),
+                                                 'grade' => new external_value(
+                                                     PARAM_FLOAT,
+                                                     'Оценка',
+                                                     VALUE_DEFAULT,
+                                                     null
+                                                 ),
+                                                 'feedback' => new external_value(
+                                                     PARAM_RAW,
+                                                     'Комментарий (HTML)',
+                                                     VALUE_DEFAULT,
+                                                     ''
+                                                 ),
+                                                 'options' => new external_value(
+                                                     PARAM_RAW,
+                                                     'Дополнительные опции (JSON-строка)',
+                                                     VALUE_DEFAULT,
+                                                     '{}'
+                                                 ),
+                                                ]);
     }
 
     /**
-     * Выполнение сохранения оценки.
+     * Saves the grade of a submission.
      *
-     * @param string $type Тип работы
-     * @param int $workid cmid
-     * @param int $userid ID студента
-     * @param float|null $grade Оценка (может быть null, если поле пустое)
-     * @param string $feedback Комментарий
-     * @param string $options JSON-строка с опциями
-     * @return array ['success' => bool]
+     * @param string $type Submission type.
+     * @param int $workid Course module ID (cmid).
+     * @param int $userid Student ID.
+     * @param float|null $grade Grade (null when the field is empty).
+     * @param string $feedback Feedback text.
+     * @param string $options JSON encoded options.
+     * @return array Result with the 'success' key.
      */
     public static function execute(
         string $type,
@@ -121,43 +122,36 @@ class save_submission_grade extends external_api {
     ): array {
         global $DB;
 
-        // Валидация параметров
         $params = self::validate_parameters(self::execute_parameters(), [
-            'type' => $type,
-            'workid' => $workid,
-            'userid' => $userid,
-            'grade' => $grade,
-            'feedback' => $feedback,
-            'options' => $options,
-        ]);
+                                                                         'type' => $type,
+                                                                         'workid' => $workid,
+                                                                         'userid' => $userid,
+                                                                         'grade' => $grade,
+                                                                         'feedback' => $feedback,
+                                                                         'options' => $options,
+                                                                        ]);
 
-        // === Проверка, что оценка задана ===
         if ($params['grade'] === null || $params['grade'] === '') {
             throw new moodle_exception('graderequired', 'block_mark_manager');
         }
 
-        // Получаем модуль курса
-        $cm = get_coursemodule_from_id('', $params['workid'], 0, false, MUST_EXIST);
+        $cm      = get_coursemodule_from_id('', $params['workid'], 0, false, MUST_EXIST);
         $context = context_module::instance($cm->id);
 
-        // Проверка прав
         self::validate_context($context);
         require_capability('block/mark_manager:grade', $context);
 
-        // Регистрация обработчиков
         self::register_handlers();
 
         $registry = submission_handler_registry::instance();
-        $handler = $registry->get_handler($params['type']);
+        $handler  = $registry->get_handler($params['type']);
 
         if ($handler === null) {
             throw new moodle_exception('unknownsubmissiontype', 'block_mark_manager', '', $params['type']);
         }
 
-        // Декодируем опции
         $optionsarray = json_decode($params['options'], true) ?: [];
 
-        // Сохраняем оценку (гарантированно передаём валидный float)
         $success = $handler->save_grade(
             $params['workid'],
             $params['userid'],
@@ -170,16 +164,16 @@ class save_submission_grade extends external_api {
     }
 
     /**
-     * Описание возвращаемого значения.
+     * Returns the description of the return values.
      *
-     * Этот метод ОБЯЗАТЕЛЕН для всех внешних веб-сервисов.
-     * Без него Moodle бросает ошибку "Missing returned values description method".
+     * This method is required for every external web service. Without it
+     * Moodle throws the "Missing returned values description method" error.
      *
      * @return external_single_structure
      */
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
-            'success' => new external_value(PARAM_BOOL, 'Успешность операции'),
-        ]);
+                                              'success' => new external_value(PARAM_BOOL, 'Успешность операции'),
+                                             ]);
     }
 }

@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Описание файла.
+ * Admin settings of the "Mark Manager" block.
  *
  * @package   block_mark_manager
  * @copyright 2026 Nikita Semenov <nikita.7nov@mail.ru>
@@ -26,7 +26,7 @@ defined('MOODLE_INTERNAL') || die();
 
 if ($hassiteconfig && $settings) {
     if ($ADMIN->fulltree) {
-        // Выбор ролей, пользователям которых всегда доступен просмотр и использование блока
+        // Select roles whose users can always view and use this block.
         $settings->add(
             new admin_setting_pickroles(
                 'block_mark_manager/viewroles',
@@ -36,8 +36,8 @@ if ($hassiteconfig && $settings) {
             )
         );
 
-        // Выбор ролей, пользователям которых разрешено управлять доступом к блоку
-        // ...для других пользователей внутри отдельных курсов.
+        // Select roles whose users are allowed to manage access to the block
+        // ...for other users within individual courses.
         $settings->add(
             new admin_setting_pickroles(
                 'block_mark_manager/manageroles',

@@ -15,14 +15,14 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Обработчик типа работы «Задание» (mod_assign).
+ * Submission type handler for assignments (mod_assign).
  *
- * Реализует контракт submission_handler_interface: подсчёт непроверенных,
- * несданных и проверенных работ, формирование списка работ, а также
- * получение контекста и сохранение оценки для Mustache-шаблона оценивания.
+ * Implements the submission_handler_interface contract: counting ungraded,
+ * unsubmitted and graded works, building the works list, and providing the
+ * context and grade saving for the Mustache grading template.
  *
- * Логика подсчета адаптирована из проекта ned-code/moodle-block_marking_manager
- * с оптимизацией для Moodle 3.9+ и исключением удаленных модулей.
+ * The counting logic is adapted from the ned-code/moodle-block_marking_manager
+ * project, optimised for Moodle 3.9+ and excluding deleted modules.
  *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
@@ -40,30 +40,23 @@ use block_mark_manager\local\submission_handlers\submission_data;
 use block_mark_manager\local\submission_handlers\submission_handler_interface;
 
 /**
- * Обработчик заданий (assign).
+ * Assignment (assign) submission type handler.
  */
 class assign_handler implements submission_handler_interface {
-    
     /**
-     * Возвращает идентификатор типа.
+     * Returns the work type identifier.
      *
-     * @return string
+     * @return string Work type identifier.
      */
     public function get_type_identifier(): string {
         return 'assign';
     }
 
     /**
-     * Количество непроверенных (сданных, но без оценки) заданий в курсе.
-     * 
-     * Логика из block_fn_marking:
-     * - Статус 'submitted'
-     * - Оценка отсутствует (NULL или -1) ИЛИ оценка старше чем сдача (была пересдача)
-     * - Только последняя попытка (latest = 1)
-     * - Исключены удаленные модули
+     * Returns the number of submitted but ungraded assignments in the course.
      *
-     * @param int $courseid
-     * @return int
+     * @param int $courseid Course ID.
+     * @return int Number of ungraded assignments.
      */
     public function get_ungraded_count(int $courseid): int {
         global $DB;
@@ -73,8 +66,8 @@ class assign_handler implements submission_handler_interface {
                   JOIN {course_modules} cm ON cm.instance = a.id AND cm.course = a.course
                   JOIN {modules} m ON m.id = cm.module AND m.name = 'assign'
                   JOIN {assign_submission} s ON s.assignment = a.id
-             LEFT JOIN {assign_grades} g ON g.assignment = a.id 
-                                          AND g.userid = s.userid 
+             LEFT JOIN {assign_grades} g ON g.assignment = a.id
+                                          AND g.userid = s.userid
                                           AND g.attemptnumber = s.attemptnumber
                  WHERE a.course = :courseid
                    AND cm.deletioninprogress = 0
@@ -86,22 +79,18 @@ class assign_handler implements submission_handler_interface {
     }
 
     /**
-     * Количество несданных заданий в курсе.
-     * 
-     * Логика из block_fn_marking:
-     * - Количество зачисленных студентов минус количество сдавших
-     * - Сдавшие: статус 'submitted'
-     * - Исключены удаленные модули
+     * Returns the number of unsubmitted assignments in the course.
      *
-     * @param int $courseid
-     * @return int
+     * @param int $courseid Course ID.
+     * @return int Number of unsubmitted assignments.
      */
     public function get_unsubmitted_count(int $courseid): int {
         global $DB;
 
         $coursecontext = context_course::instance($courseid);
-        // === ИСПРАВЛЕНИЕ: только пользователи с capability сдачи задания ===
-        list($esql, $params) = get_enrolled_sql($coursecontext, 'mod/assign:submit');
+        $enrolledsql   = get_enrolled_sql($coursecontext, 'mod/assign:submit');
+        $esql          = $enrolledsql[0];
+        $params        = $enrolledsql[1];
 
         $sql = "SELECT COUNT(DISTINCT u.id)
                   FROM {user} u
@@ -126,16 +115,10 @@ class assign_handler implements submission_handler_interface {
     }
 
     /**
-     * Количество уже проверенных (оценённых) заданий в курсе.
-     * 
-     * Логика из block_fn_marking:
-     * - Статус 'submitted', 'resub', 'new' или 'draft' с оценкой новее сдачи
-     * - Оценка есть и не равна -1
-     * - Только последняя попытка
-     * - Исключены удаленные модули
+     * Returns the number of graded assignments in the course.
      *
-     * @param int $courseid
-     * @return int
+     * @param int $courseid Course ID.
+     * @return int Number of graded assignments.
      */
     public function get_graded_count(int $courseid): int {
         global $DB;
@@ -145,39 +128,41 @@ class assign_handler implements submission_handler_interface {
                   JOIN {course_modules} cm ON cm.instance = a.id AND cm.course = a.course
                   JOIN {modules} m ON m.id = cm.module AND m.name = 'assign'
                   JOIN {assign_submission} s ON s.assignment = a.id
-                  JOIN {assign_grades} g ON g.assignment = a.id 
-                                         AND g.userid = s.userid 
+                  JOIN {assign_grades} g ON g.assignment = a.id
+                                         AND g.userid = s.userid
                                          AND g.attemptnumber = s.attemptnumber
                  WHERE a.course = :courseid
                    AND cm.deletioninprogress = 0
                    AND s.latest = 1
                    AND (
-                       (s.status IN ('submitted', 'resub', 'new') 
+                       (s.status IN ('submitted', 'resub', 'new')
                         AND g.grade IS NOT NULL AND g.grade <> -1)
                        OR
-                       (s.status = 'draft' 
-                        AND g.grade IS NOT NULL AND g.grade <> -1 
+                       (s.status = 'draft'
+                        AND g.grade IS NOT NULL AND g.grade <> -1
                         AND g.timemodified > s.timemodified)
                    )";
 
         return (int) $DB->count_records_sql($sql, ['courseid' => $courseid]);
     }
 
-        /**
-     * Возвращает список работ (заданий) для блока.
+    /**
+     * Returns the list of assignments for the block.
      *
-     * @param int $courseid
-     * @param array $filters
-     * @return submission_data[]
+     * @param int $courseid Course ID.
+     * @param array $filters Filters.
+     * @return submission_data[] List of works.
      */
     public function get_works_list(int $courseid, array $filters): array {
         global $DB;
 
-        $coursecontext = \context_course::instance($courseid);
-        // === ИСПРАВЛЕНИЕ: только пользователи с capability сдачи задания ===
-        list($esql, $params) = get_enrolled_sql($coursecontext, 'mod/assign:submit');
+        $coursecontext = context_course::instance($courseid);
+        $enrolledsql   = get_enrolled_sql($coursecontext, 'mod/assign:submit');
+        $esql          = $enrolledsql[0];
+        $params        = $enrolledsql[1];
 
-        $sql = "SELECT u.id AS userid, u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic, u.middlename, u.alternatename,
+        $sql = "SELECT u.id AS userid, u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic,
+                       u.middlename, u.alternatename,
                        a.id AS assignid, a.name AS assignname, a.duedate,
                        s.id AS submissionid, s.status AS submissionstatus, s.timemodified AS subtimemodified,
                        g.grade, g.timemodified AS gradetimemodified
@@ -195,7 +180,7 @@ class assign_handler implements submission_handler_interface {
 
         $records = $DB->get_records_sql($sql, $params);
 
-        $modinfo = get_fast_modinfo($courseid);
+        $modinfo   = get_fast_modinfo($courseid);
         $assigncms = [];
         foreach ($modinfo->get_instances_of('assign') as $cm) {
             if ($cm->deletioninprogress) {
@@ -203,7 +188,7 @@ class assign_handler implements submission_handler_interface {
             }
             $assigncms[$cm->instance] = $cm->id;
         }
-        
+
         if (empty($assigncms)) {
             $cms = get_coursemodules_in_course('assign', $courseid);
             foreach ($cms as $cm) {
@@ -221,12 +206,14 @@ class assign_handler implements submission_handler_interface {
             }
             $cmid = $assigncms[$r->assignid];
 
-            $status = null;
+            $status   = null;
             $gradeval = ($r->grade !== null && $r->grade !== '' && $r->grade != -1) ? (float)$r->grade : null;
 
             if ($r->submissionstatus === 'submitted') {
-                if ($gradeval === null || $gradeval < 0 || 
-                    ($r->gradetimemodified !== null && $r->subtimemodified !== null && $r->gradetimemodified < $r->subtimemodified)) {
+                if (
+                    $gradeval === null || $gradeval < 0 ||
+                    ($r->gradetimemodified !== null && $r->subtimemodified !== null && $r->gradetimemodified < $r->subtimemodified)
+                ) {
                     $status = 'ungraded';
                 } else {
                     $status = 'graded';
@@ -239,15 +226,15 @@ class assign_handler implements submission_handler_interface {
                 continue;
             }
 
-            $userobj = new \stdClass();
-            $userobj->id = $r->userid;
-            $userobj->firstname = $r->firstname;
-            $userobj->lastname = $r->lastname;
+            $userobj                    = new stdClass();
+            $userobj->id                = $r->userid;
+            $userobj->firstname         = $r->firstname;
+            $userobj->lastname          = $r->lastname;
             $userobj->firstnamephonetic = $r->firstnamephonetic ?? '';
-            $userobj->lastnamephonetic = $r->lastnamephonetic ?? '';
-            $userobj->middlename = $r->middlename ?? '';
-            $userobj->alternatename = $r->alternatename ?? '';
-            
+            $userobj->lastnamephonetic  = $r->lastnamephonetic ?? '';
+            $userobj->middlename        = $r->middlename ?? '';
+            $userobj->alternatename     = $r->alternatename ?? '';
+
             $fullname = fullname($userobj);
             if (!empty($filters['studentname'])) {
                 if (stripos($fullname, $filters['studentname']) === false) {
@@ -265,8 +252,8 @@ class assign_handler implements submission_handler_interface {
                 $status,
                 $gradeval,
                 [
-                    'submissionid' => $r->submissionid !== null ? (int)$r->submissionid : 0,
-                    'assignmentid' => (int)$r->assignid,
+                 'submissionid' => $r->submissionid !== null ? (int)$r->submissionid : 0,
+                 'assignmentid' => (int)$r->assignid,
                 ]
             );
         }
@@ -282,62 +269,59 @@ class assign_handler implements submission_handler_interface {
     }
 
     /**
-     * Возвращает имя Mustache-шаблона оценивания задания.
+     * Returns the name of the assignment grading Mustache template.
      *
-     * @return string
+     * @return string Template name.
      */
     public function get_grading_template_name(): string {
         return 'block_mark_manager/grading_assign';
     }
 
-        /**
-     * Возвращает контекст для шаблона оценивания задания.
+    /**
+     * Returns the context for the assignment grading template.
      *
-     * @param int $workid Идентификатор экземпляра (cmid).
-     * @param int $userid
-     * @param array $params Дополнительные параметры (например, 'slot' для quiz essay).
-     * @return array
+     * @param int $workid Instance ID (cmid).
+     * @param int $userid Student ID.
+     * @param array $params Extra parameters.
+     * @return array Template context.
      */
     public function get_grading_template_context(int $workid, int $userid, array $params = []): array {
         global $CFG, $DB;
 
         require_once($CFG->dirroot . '/mod/assign/locallib.php');
 
-        $cm = get_coursemodule_from_id('assign', $workid, 0, false, MUST_EXIST);
-        $context = \context_module::instance($cm->id);
-        $assign = new \assign($context, $cm, $cm->course);
+        $cm      = get_coursemodule_from_id('assign', $workid, 0, false, MUST_EXIST);
+        $context = context_module::instance($cm->id);
+        $assign  = new \assign($context, $cm, $cm->course);
 
-        $instance = $assign->get_instance();
+        $instance   = $assign->get_instance();
         $submission = $assign->get_user_submission($userid, true);
-        $grade = $assign->get_user_grade($userid, true);
+        $grade      = $assign->get_user_grade($userid, true);
 
-        $submissiontext = '';
+        $submissiontext    = '';
         $hassubmissiontext = false;
-        $files = [];
-        $hasfiles = false;
+        $files             = [];
+        $hasfiles          = false;
 
-                if ($submission) {
-            // === Текстовый ответ (плагин onlinetext) ===
+        if ($submission) {
             $onlinetext = $DB->get_record('assignsubmission_onlinetext', [
-                'assignment' => $instance->id,
-                'submission' => $submission->id,
-            ]);
+                                                                          'assignment' => $instance->id,
+                                                                          'submission' => $submission->id,
+                                                                         ]);
             if ($onlinetext && trim(strip_tags($onlinetext->onlinetext)) !== '') {
-                $submissiontext = format_text($onlinetext->onlinetext, $onlinetext->onlineformat, [
-                    'context' => $context,
-                    'noclean' => true,
-                    'para' => false,
-                ]);
+                $textoptions       = (object) [
+                                               'context' => $context,
+                                               'noclean' => true,
+                                               'para' => false,
+                                              ];
+                $submissiontext    = format_text($onlinetext->onlinetext, $onlinetext->onlineformat, $textoptions);
                 $hassubmissiontext = true;
             }
 
-            // === Прикреплённые файлы ===
-            // ВАЖНО: компонент должен быть 'assignsubmission_file' (плагин отправки файлов),
-            // а не 'mod_assign'. Файлы сохраняются плагином, а не самим модулем задания.
-            $fs = get_file_storage();
+            $fs        = get_file_storage();
             $areafiles = $fs->get_area_files(
                 $context->id,
-                'assignsubmission_file',   // ← ИСПРАВЛЕНО: было 'mod_assign'
+                'assignsubmission_file',
                 'submission_files',
                 $submission->id,
                 'filename',
@@ -346,24 +330,20 @@ class assign_handler implements submission_handler_interface {
 
             foreach ($areafiles as $file) {
                 $hasfiles = true;
-                $files[] = [
-                    'filename' => $file->get_filename(),
-                    'url' => \moodle_url::make_pluginfile_url(
-                        $file->get_contextid(),
-                        $file->get_component(),
-                        $file->get_filearea(),
-                        $file->get_itemid(),
-                        $file->get_filepath(),
-                        $file->get_filename()
-                    )->out(false),
-                    'mimetype' => $file->get_mimetype(),
-                ];
+                $files[]  = [
+                             'filename' => $file->get_filename(),
+                             'url' => moodle_url::make_pluginfile_url(
+                                 $file->get_contextid(),
+                                 $file->get_component(),
+                                 $file->get_filearea(),
+                                 $file->get_itemid(),
+                                 $file->get_filepath(),
+                                 $file->get_filename()
+                             )->out(false),
+                             'mimetype' => $file->get_mimetype(),
+                            ];
             }
 
-            // === Fallback для обратной совместимости ===
-            // В очень старых версиях Moodle или при импорте данных файлы могут
-            // храниться под компонентом 'mod_assign'. Проверяем и там, если
-            // основной запрос ничего не вернул.
             if (empty($files)) {
                 $legacyfiles = $fs->get_area_files(
                     $context->id,
@@ -375,23 +355,23 @@ class assign_handler implements submission_handler_interface {
                 );
                 foreach ($legacyfiles as $file) {
                     $hasfiles = true;
-                    $files[] = [
-                        'filename' => $file->get_filename(),
-                        'url' => \moodle_url::make_pluginfile_url(
-                            $file->get_contextid(),
-                            $file->get_component(),
-                            $file->get_filearea(),
-                            $file->get_itemid(),
-                            $file->get_filepath(),
-                            $file->get_filename()
-                        )->out(false),
-                        'mimetype' => $file->get_mimetype(),
-                    ];
+                    $files[]  = [
+                                 'filename' => $file->get_filename(),
+                                 'url' => moodle_url::make_pluginfile_url(
+                                     $file->get_contextid(),
+                                     $file->get_component(),
+                                     $file->get_filearea(),
+                                     $file->get_itemid(),
+                                     $file->get_filepath(),
+                                     $file->get_filename()
+                                 )->out(false),
+                                 'mimetype' => $file->get_mimetype(),
+                                ];
                 }
             }
         }
 
-        $user = \core_user::get_user($userid);
+        $user = core_user::get_user($userid);
 
         if ($instance->grade > 0) {
             $maxgrade = (float)$instance->grade;
@@ -405,52 +385,52 @@ class assign_handler implements submission_handler_interface {
             $duedateformatted = userdate($instance->duedate, get_string('strftimedaydatetime', 'core_langconfig'));
         }
 
-        $gradingurl = new \moodle_url('/mod/assign/view.php', [
-            'id' => $workid,
-            'action' => 'grader',
-            'userid' => $userid,
-        ]);
+        $gradingurl = new moodle_url('/mod/assign/view.php', [
+                                                              'id' => $workid,
+                                                              'action' => 'grader',
+                                                              'userid' => $userid,
+                                                             ]);
 
         $issubmitted = $submission && $submission->status === 'submitted';
 
         return [
-            'studentname' => fullname($user),
-            'workname' => $instance->name,
-            'duedate' => (int)$instance->duedate,
-            'duedateformatted' => $duedateformatted,
-            'hasduedate' => !empty($instance->duedate),
-            'grade' => $grade ? (float)$grade->grade : null,
-            'hasgrade' => $grade !== null && $grade->grade !== null && $grade->grade >= 0,
-            'mingrade' => $mingrade,
-            'maxgrade' => $maxgrade,
-            'submissiontext' => $submissiontext,
-            'hassubmissiontext' => $hassubmissiontext,
-            'files' => $files,
-            'hasfiles' => $hasfiles,
-            'gradingurl' => $gradingurl->out(false),
-            'issubmitted' => $issubmitted,
-        ];
+                'studentname' => fullname($user),
+                'workname' => $instance->name,
+                'duedate' => (int)$instance->duedate,
+                'duedateformatted' => $duedateformatted,
+                'hasduedate' => !empty($instance->duedate),
+                'grade' => $grade ? (float)$grade->grade : null,
+                'hasgrade' => $grade !== null && $grade->grade !== null && $grade->grade >= 0,
+                'mingrade' => $mingrade,
+                'maxgrade' => $maxgrade,
+                'submissiontext' => $submissiontext,
+                'hassubmissiontext' => $hassubmissiontext,
+                'files' => $files,
+                'hasfiles' => $hasfiles,
+                'gradingurl' => $gradingurl->out(false),
+                'issubmitted' => $issubmitted,
+               ];
     }
 
     /**
-     * Сохраняет оценку и комментарий для задания.
+     * Saves the grade and the feedback for an assignment.
      *
-     * @param int $workid Идентификатор экземпляра (cmid).
-     * @param int $userid
-     * @param float $grade
-     * @param string $feedback
-     * @param array $options
-     * @return bool
-     * @throws \moodle_exception Если работа не была сдана студентом.
+     * @param int $workid Instance ID (cmid).
+     * @param int $userid Student ID.
+     * @param float $grade Grade.
+     * @param string $feedback Feedback text.
+     * @param array $options Extra options.
+     * @return bool True on success.
+     * @throws \moodle_exception When the work was not submitted by the student.
      */
     public function save_grade(int $workid, int $userid, float $grade, string $feedback, array $options = []): bool {
         global $CFG, $USER, $DB;
 
         require_once($CFG->dirroot . '/mod/assign/locallib.php');
 
-        $cm = get_coursemodule_from_id('assign', $workid, 0, false, MUST_EXIST);
-        $context = \context_module::instance($cm->id);
-        $assign = new \assign($context, $cm, $cm->course);
+        $cm      = get_coursemodule_from_id('assign', $workid, 0, false, MUST_EXIST);
+        $context = context_module::instance($cm->id);
+        $assign  = new \assign($context, $cm, $cm->course);
 
         $submission = $assign->get_user_submission($userid, false);
 
@@ -464,15 +444,15 @@ class assign_handler implements submission_handler_interface {
             );
         }
 
-        $data = new \stdClass();
-        $data->grade = $grade;
+        $data                = new stdClass();
+        $data->grade         = $grade;
         $data->attemptnumber = $submission->attemptnumber;
 
         $data->assignfeedbackcomments_editor = [
-            'text' => $feedback,
-            'format' => FORMAT_HTML,
-            'itemid' => 0,
-        ];
+                                                'text' => $feedback,
+                                                'format' => FORMAT_HTML,
+                                                'itemid' => 0,
+                                               ];
 
         $assign->save_grade($userid, $data);
 

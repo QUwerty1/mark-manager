@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Главный класс блока "Менеджер оценивания".
+ * Main class of the "Mark Manager" block.
  *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
@@ -29,12 +29,12 @@ require_once(__DIR__ . '/lib.php');
 
 use block_mark_manager\local\submission_handler_registry;
 /**
- * Класс блока "Менеджер оценивания"
+ * The "Mark Manager" block class.
  */
 class block_mark_manager extends block_base
 {
     /**
-     * Инициализация блока.
+     * Initialises the block.
      *
      * @return void
      */
@@ -43,8 +43,7 @@ class block_mark_manager extends block_base
     }
 
     /**
-     * Получение контента блока.
-     * Если у пользователя нет доступа, блок полностью скрывается.
+     * Gets the block content. The block is hidden entirely when the user has no access.
      *
      * @return stdClass
      */
@@ -55,8 +54,8 @@ class block_mark_manager extends block_base
             return $this->content;
         }
 
-        $this->content = new stdClass();
-        $this->content->text = '';
+        $this->content         = new stdClass();
+        $this->content->text   = '';
         $this->content->footer = '';
 
         if (empty($this->page->course->id) || !block_mark_manager_user_can_access($this->page->course->id)) {
@@ -69,53 +68,53 @@ class block_mark_manager extends block_base
         $counts = $registry->aggregate_counts($this->page->course->id);
 
         $requiresgrading = $counts['ungraded'];
-        $graded = $counts['graded'];
-        $notsubmitted = $counts['unsubmitted'];
+        $graded          = $counts['graded'];
+        $notsubmitted    = $counts['unsubmitted'];
 
         $items[] = [
-            'url' => '',
-            'icon' => 'i/calendar',
-            'label' => get_string('requiresgrading', 'block_mark_manager'),
-            'count' => $requiresgrading,
-            'notnull' => $requiresgrading > 0,
-            'status' => 'ungraded',
-        ];
+                    'url' => '',
+                    'icon' => 'i/calendar',
+                    'label' => get_string('requiresgrading', 'block_mark_manager'),
+                    'count' => $requiresgrading,
+                    'notnull' => $requiresgrading > 0,
+                    'status' => 'ungraded',
+                   ];
 
         $items[] = [
-            'url' => '',
-            'icon' => 'i/valid',
-            'label' => get_string('graded', 'block_mark_manager'),
-            'count' => $graded,
-            'notnull' => $graded > 0,
-            'status' => 'graded',
-        ];
+                    'url' => '',
+                    'icon' => 'i/valid',
+                    'label' => get_string('graded', 'block_mark_manager'),
+                    'count' => $graded,
+                    'notnull' => $graded > 0,
+                    'status' => 'graded',
+                   ];
 
         $items[] = [
-            'url' => '',
-            'icon' => 'i/invalid',
-            'label' => get_string('notsubmitted', 'block_mark_manager'),
-            'count' => $notsubmitted,
-            'notnull' => $notsubmitted > 0,
-            'status' => 'unsubmitted',
-        ];
+                    'url' => '',
+                    'icon' => 'i/invalid',
+                    'label' => get_string('notsubmitted', 'block_mark_manager'),
+                    'count' => $notsubmitted,
+                    'notnull' => $notsubmitted > 0,
+                    'status' => 'unsubmitted',
+                   ];
 
         $reports[] = [
-            'url' => '',
-            'icon' => 'i/grades',
-            'label' => get_string('progressreport', 'block_mark_manager'),
-        ];
+                      'url' => '',
+                      'icon' => 'i/grades',
+                      'label' => get_string('progressreport', 'block_mark_manager'),
+                     ];
 
         $reports[] = [
-            'url' => '',
-            'icon' => 'i/group',
-            'label' => get_string('studentlist', 'block_mark_manager'),
-        ];
+                      'url' => '',
+                      'icon' => 'i/group',
+                      'label' => get_string('studentlist', 'block_mark_manager'),
+                     ];
 
         $templatecontext = [
-            'aggregations' => $items,
-            'reports' => $reports,
-            'courseid' => $this->page->course->id,
-        ];
+                            'aggregations' => $items,
+                            'reports' => $reports,
+                            'courseid' => $this->page->course->id,
+                           ];
 
         $this->content->text = $OUTPUT->render_from_template(
             'block_mark_manager/content',
@@ -128,20 +127,20 @@ class block_mark_manager extends block_base
     }
 
     /**
-     * Разрешение создания блока только на странице курса
+     * Allows the block to be added only on course pages.
      *
      * @return array
      */
     public function applicable_formats() {
         return [
-            'course-view' => true,
-            'site-index' => false,
-            'my' => false,
-        ];
+                'course-view' => true,
+                'site-index' => false,
+                'my' => false,
+               ];
     }
 
     /**
-     * Запрет создания нескольких экземпляров блока в курсе
+     * Prevents multiple instances of the block in one course.
      *
      * @return bool
      */
@@ -150,7 +149,7 @@ class block_mark_manager extends block_base
     }
 
     /**
-     * Включение глобальной конфигурации
+     * Enables the global configuration of the block.
      *
      * @return bool
      */
@@ -159,7 +158,7 @@ class block_mark_manager extends block_base
     }
 
     /**
-     * Включение конфигурации экземпляра блока
+     * Enables the instance configuration of the block.
      *
      * @return bool
      */

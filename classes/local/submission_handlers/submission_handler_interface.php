@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Интерфейс обработчика типа работы.
+ * Submission type handler interface.
  *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
@@ -25,76 +25,75 @@
 namespace block_mark_manager\local\submission_handlers;
 
 /**
- * Контракт для обработчиков типов работ.
+ * Contract for the submission type handlers.
  */
 interface submission_handler_interface {
-
     /**
-     * Возвращает уникальный идентификатор типа работы.
+     * Returns the unique work type identifier.
      *
-     * @return string
+     * @return string Work type identifier.
      */
     public function get_type_identifier(): string;
 
     /**
-     * Количество непроверенных работ в курсе.
+     * Returns the number of ungraded works in the course.
      *
-     * @param int $courseid
-     * @return int
+     * @param int $courseid Course ID.
+     * @return int Number of ungraded works.
      */
     public function get_ungraded_count(int $courseid): int;
 
     /**
-     * Количество несданных работ в курсе.
+     * Returns the number of unsubmitted works in the course.
      *
-     * @param int $courseid
-     * @return int
+     * @param int $courseid Course ID.
+     * @return int Number of unsubmitted works.
      */
     public function get_unsubmitted_count(int $courseid): int;
 
     /**
-     * Количество уже проверенных работ в курсе.
+     * Returns the number of graded works in the course.
      *
-     * @param int $courseid
-     * @return int
+     * @param int $courseid Course ID.
+     * @return int Number of graded works.
      */
     public function get_graded_count(int $courseid): int;
 
     /**
-     * Возвращает список работ для отображения в блоке.
+     * Returns the list of works for the block.
      *
-     * @param int $courseid
-     * @param array $filters
-     * @return submission_data[]
+     * @param int $courseid Course ID.
+     * @param array $filters Filters.
+     * @return submission_data[] List of works.
      */
     public function get_works_list(int $courseid, array $filters): array;
 
     /**
-     * Возвращает имя Mustache-шаблона оценивания.
+     * Returns the name of the grading Mustache template.
      *
-     * @return string
+     * @return string Template name.
      */
     public function get_grading_template_name(): string;
 
     /**
-     * Возвращает контекст для шаблона оценивания.
+     * Returns the context for the grading template.
      *
-     * @param int $workid Идентификатор экземпляра (cmid).
-     * @param int $userid Идентификатор студента.
-     * @param array $params Дополнительные параметры (например, 'slot' для эссе).
-     * @return array
+     * @param int $workid Instance ID (cmid).
+     * @param int $userid Student ID.
+     * @param array $params Extra parameters (for example, 'slot' for essays).
+     * @return array Template context.
      */
     public function get_grading_template_context(int $workid, int $userid, array $params = []): array;
 
     /**
-     * Сохраняет оценку и комментарий.
+     * Saves the grade and the feedback.
      *
-     * @param int $workid
-     * @param int $userid
-     * @param float $grade
-     * @param string $feedback
-     * @param array $options
-     * @return bool
+     * @param int $workid Instance ID (cmid).
+     * @param int $userid Student ID.
+     * @param float $grade Grade.
+     * @param string $feedback Feedback text.
+     * @param array $options Type specific options.
+     * @return bool True on success.
      */
     public function save_grade(int $workid, int $userid, float $grade, string $feedback, array $options = []): bool;
 }

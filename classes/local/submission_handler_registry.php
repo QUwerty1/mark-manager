@@ -15,12 +15,11 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Реестр обработчиков типов сдаваемых работ.
+ * Registry of submission type handlers.
  *
- * Центральный менеджер, хранящий экземпляры всех зарегистрированных
- * обработчиков (submission_handler_interface). Позволяет агрегировать подсчёты
- * по всем типам и динамически маршрутизировать запросы фрагментов к нужному
- * обработчику.
+ * Central manager keeping instances of all registered handlers
+ * (submission_handler_interface). It allows aggregating counts over all
+ * types and dynamically routing fragment requests to the proper handler.
  *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
@@ -33,29 +32,31 @@ use block_mark_manager\local\submission_handlers\submission_data;
 use block_mark_manager\local\submission_handlers\submission_handler_interface;
 
 /**
- * Реестр обработчиков типов сдаваемых работ.
+ * Registry of submission type handlers.
  *
- * Реализован как синглтон: единственный экземпляр хранит зарегистрированные
- * обработчики, что позволяет блоку, фрагментам и веб-сервисам обращаться к
- * одному и тому же набору обработчиков.
+ * Implemented as a singleton: the single instance keeps the registered
+ * handlers so that the block, the fragments and the web services all use
+ * the same set of handlers.
  */
 class submission_handler_registry {
-    /** @var self|null Единственный экземпляр реестра. */
+    /** @var self|null $instance The single instance of the registry. */
     private static $instance = null;
 
-    /** @var submission_handler_interface[] Массив зарегистрированных обработчиков, индексированный по type_identifier. */
+    /** @var submission_handler_interface[] $handlers Registered handlers indexed by type identifier. */
     private $handlers = [];
 
     /**
-     * Приватный конструктор (шаблон синглтон).
+     * Private constructor (singleton pattern).
+     *
+     * @return void
      */
     private function __construct() {
     }
 
     /**
-     * Возвращает единственный экземпляр реестра.
+     * Returns the single instance of the registry.
      *
-     * @return self
+     * @return self The registry instance.
      */
     public static function instance(): self {
         if (self::$instance === null) {
@@ -65,7 +66,7 @@ class submission_handler_registry {
     }
 
     /**
-     * Запрещаем клонирование синглтона.
+     * Prevents cloning of the singleton.
      *
      * @return void
      */
@@ -73,12 +74,9 @@ class submission_handler_registry {
     }
 
     /**
-     * Регистрирует обработчик типа работы в реестре.
+     * Registers a submission handler in the registry.
      *
-     * Ключом в массиве служит значение, возвращаемое методом
-     * get_type_identifier() обработчика.
-     *
-     * @param submission_handler_interface $handler Экземпляр обработчика.
+     * @param submission_handler_interface $handler Handler instance.
      * @return void
      */
     public function register(submission_handler_interface $handler): void {
@@ -86,66 +84,58 @@ class submission_handler_registry {
     }
 
     /**
-     * Возвращает зарегистрированный обработчик по его идентификатору типа.
+     * Returns a registered handler by its type identifier.
      *
-     * @param string $typeidentifier Идентификатор типа (например, 'assign').
-     * @return submission_handler_interface|null Обработчик либо null, если не найден.
+     * @param string $typeidentifier Type identifier (for example, 'assign').
+     * @return submission_handler_interface|null Handler or null when not found.
      */
     public function get_handler(string $typeidentifier): ?submission_handler_interface {
         return $this->handlers[$typeidentifier] ?? null;
     }
 
     /**
-     * Возвращает список идентификаторов всех зарегистрированных типов.
+     * Returns the identifiers of all registered types.
      *
-     * @return string[] Массив идентификаторов типов.
+     * @return string[] Array of type identifiers.
      */
     public function get_registered_types(): array {
         return array_keys($this->handlers);
     }
 
     /**
-     * Агрегирует суммарные подсчёты по всем зарегистрированным типам работ.
+     * Aggregates the total counts over all registered handlers.
      *
-     * Проходит по всем обработчикам, суммирует количество непроверенных и
-     * несданных работ и возвращает итоговые значения для блока.
-     *
-     * @param int $courseid Идентификатор курса.
-     * @return array Ассоциативный массив с ключами 'ungraded' и 'unsubmitted'.
+     * @param int $courseid Course ID.
+     * @return array Associative array with the 'ungraded', 'unsubmitted' and 'graded' keys.
      */
     public function aggregate_counts(int $courseid): array {
         $totals = [
-            'ungraded' => 0,
-            'unsubmitted' => 0,
-            'graded' => 0,
-        ];
+                   'ungraded' => 0,
+                   'unsubmitted' => 0,
+                   'graded' => 0,
+                  ];
 
         foreach ($this->handlers as $handler) {
-            $totals['ungraded'] += $handler->get_ungraded_count($courseid);
+            $totals['ungraded']    += $handler->get_ungraded_count($courseid);
             $totals['unsubmitted'] += $handler->get_unsubmitted_count($courseid);
-            $totals['graded'] += $handler->get_graded_count($courseid);
+            $totals['graded']      += $handler->get_graded_count($courseid);
         }
 
         return $totals;
     }
 
     /**
-     * Агрегирует и объединяет списки работ от всех обработчиков.
+     * Aggregates and merges the works lists of all handlers.
      *
-     * Проходит по всем обработчикам, получает их списки работ (массивы
-     * объектов submission_data) с учётом фильтров, проставляет каждому
-     * объекту корректный typeidentifier, объединяет их и сортирует
-     * итоговый список согласно параметрам сортировки из фильтров.
+     * Supported keys in $filters:
+     *  - 'sortby': 'duedate' (default) or 'student' (by student name).
+     *  - 'sortdir': 'asc' (default) or 'desc'.
+     *  - 'status': 'ungraded' | 'unsubmitted' | 'graded' (status filter).
+     *  - 'student': string to search the student name by (case insensitive substring).
      *
-     * Поддерживаемые ключи в $filters:
-     *  - 'sortby': 'duedate' (по умолчанию) или 'student' (по имени студента).
-     *  - 'sortdir': 'asc' (по умолчанию) или 'desc'.
-     *  - 'status': 'ungraded' | 'unsubmitted' | 'graded' (фильтр по статусу).
-     *  - 'student': строка для поиска по имени студента (подстрока, без учёта регистра).
-     *
-     * @param int $courseid Идентификатор курса.
-     * @param array $filters Массив фильтров и параметров сортировки.
-     * @return submission_data[] Объединённый и отсортированный массив работ.
+     * @param int $courseid Course ID.
+     * @param array $filters Filters and sorting options.
+     * @return submission_data[] Merged and sorted array of works.
      */
     public function aggregate_works_list(int $courseid, array $filters): array {
         $works = [];
@@ -162,21 +152,21 @@ class submission_handler_registry {
 
         if (!empty($filters['status']) && in_array($filters['status'], ['ungraded', 'unsubmitted', 'graded'], true)) {
             $status = $filters['status'];
-            $works = array_filter($works, static function ($item) use ($status) {
+            $works  = array_filter($works, static function ($item) use ($status) {
                 return $item instanceof submission_data && $item->status === $status;
             });
         }
 
         if (!empty($filters['student'])) {
             $needle = \core_text::strtolower(trim($filters['student']));
-            $works = array_filter($works, static function ($item) use ($needle) {
+            $works  = array_filter($works, static function ($item) use ($needle) {
                 return $item instanceof submission_data
                     && $needle !== ''
                     && strpos(\core_text::strtolower($item->studentname), $needle) !== false;
             });
         }
 
-        $sortby = $filters['sortby'] ?? 'duedate';
+        $sortby  = $filters['sortby'] ?? 'duedate';
         $sortdir = ($filters['sortdir'] ?? 'asc') === 'desc' ? SORT_DESC : SORT_ASC;
 
         $this->sort_works($works, $sortby, $sortdir);
@@ -185,11 +175,11 @@ class submission_handler_registry {
     }
 
     /**
-     * Сортирует массив объектов submission_data по заданному полю и направлению.
+     * Sorts the works by the given field and direction.
      *
-     * @param submission_data[] $works Ссылка на массив работ.
-     * @param string $sortby Поле сортировки: 'duedate' или 'student'.
-     * @param int $sortdir Константа SORT_ASC или SORT_DESC.
+     * @param submission_data[] $works Works array (passed by reference).
+     * @param string $sortby Sort field: 'duedate' or 'student'.
+     * @param int $sortdir SORT_ASC or SORT_DESC constant.
      * @return void
      */
     private function sort_works(array &$works, string $sortby, int $sortdir): void {

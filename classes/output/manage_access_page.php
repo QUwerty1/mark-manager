@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Класс данных для шаблона управления индивидуальным доступом.
+ * Data class for the individual access management template.
  *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
@@ -33,86 +33,82 @@ use moodle_url;
 use moodle_database;
 
 /**
- * Класс данных для шаблона управления индивидуальным доступом к блоку.
- *
- * @package    block_mark_manager
- * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * Data class for the individual block access management template.
  */
 class manage_access_page implements renderable, templatable {
-    /** @var stdClass Объект курса */
+    /** @var stdClass $course Course object. */
     protected $course;
 
-    /** @var context_course Контекст курса */
+    /** @var context_course $context Course context. */
     protected $context;
 
-    /** @var int ID экземпляра блока */
+    /** @var int $blockid Block instance ID. */
     protected $blockid;
 
-    /** @var string Поисковый запрос */
+    /** @var string $search Search query. */
     protected $search;
 
-    /** @var int Номер текущей страницы (для пагинации) */
+    /** @var int $page Current page number (for pagination). */
     protected $page;
 
-    /** @var int Количество записей на странице */
+    /** @var int $perpage Number of records per page. */
     protected $perpage;
 
-    /** @var moodle_url Базовый URL страницы */
+    /** @var moodle_url $baseurl Base URL of the page. */
     protected $baseurl;
 
     /**
-     * Конструктор.
+     * Constructor.
      *
-     * @param stdClass $course Объект курса
-     * @param context_course $context Контекст курса
-     * @param int $blockid ID экземпляра блока
-     * @param string $search Поисковый запрос
-     * @param int $page Номер текущей страницы
-     * @param int $perpage Количество записей на странице
-     * @param moodle_url $baseurl Базовый URL страницы
+     * @param stdClass $course Course object.
+     * @param context_course $context Course context.
+     * @param int $blockid Block instance ID.
+     * @param string $search Search query.
+     * @param int $page Current page number.
+     * @param int $perpage Number of records per page.
+     * @param moodle_url $baseurl Base URL of the page.
      */
     public function __construct($course, $context, $blockid, $search, $page, $perpage, $baseurl) {
-        $this->course = $course;
+        $this->course  = $course;
         $this->context = $context;
         $this->blockid = $blockid;
-        $this->search = $search;
-        $this->page = $page;
+        $this->search  = $search;
+        $this->page    = $page;
         $this->perpage = $perpage;
         $this->baseurl = $baseurl;
     }
 
     /**
-     * Экспорт данных для шаблона Mustache.
+     * Exports the data for the Mustache template.
      *
-     * @param \core_renderer $output Renderer для генерации HTML
-     * @return stdClass Данные для шаблона
+     * @param \core_renderer $output Renderer to generate the HTML.
+     * @return stdClass Data for the template.
      */
     public function export_for_template(renderer_base $output) {
         global $DB;
 
-        $data = new stdClass();
+        $data           = new stdClass();
         $data->courseid = $this->course->id;
         $data->blockid  = $this->blockid;
         $data->search   = $this->search;
         $data->baseurl  = $this->baseurl->out(false);
 
-        $courseurl = new moodle_url('/course/view.php', ['id' => $this->course->id]);
-        $data->backurl = $courseurl->out(false);
+        $courseurl      = new moodle_url('/course/view.php', ['id' => $this->course->id]);
+        $data->backurl  = $courseurl->out(false);
         $data->backtext = get_string('backtocourse', 'block_mark_manager');
 
         $namefields = get_all_user_name_fields(true, 'u');
 
         $enrolledsql = get_enrolled_sql($this->context);
-        $esql = $enrolledsql[0];
-        $eparams = $enrolledsql[1];
+        $esql        = $enrolledsql[0];
+        $eparams     = $enrolledsql[1];
 
         $sqlparams = $eparams;
-        $where = '';
+        $where     = '';
 
         if (!empty($this->search)) {
-            $searchtrim = trim($this->search);
-            $where = " AND (" . $DB->sql_like('u.firstname', ':fn', false) .
+            $searchtrim      = trim($this->search);
+            $where           = " AND (" . $DB->sql_like('u.firstname', ':fn', false) .
                  " OR "  . $DB->sql_like('u.lastname', ':ln', false) .
                  " OR "  . $DB->sql_like('u.email', ':em', false) .
                  ")";
@@ -121,11 +117,11 @@ class manage_access_page implements renderable, templatable {
             $sqlparams['em'] = '%' . $searchtrim . '%';
         }
 
-        $subsql = "SELECT userid FROM {block_mark_manager_access} WHERE courseid = :cid";
+        $subsql           = "SELECT userid FROM {block_mark_manager_access} WHERE courseid = :cid";
         $sqlparams['cid'] = $this->course->id;
-        $where .= " AND u.id NOT IN ($subsql)";
+        $where           .= " AND u.id NOT IN ($subsql)";
 
-        $countsql = "SELECT COUNT(u.id)
+        $countsql   = "SELECT COUNT(u.id)
                    FROM {user} u
                    JOIN ($esql) eu ON eu.id = u.id
                   WHERE u.deleted = 0 AND u.suspended = 0 $where";
@@ -147,35 +143,36 @@ class manage_access_page implements renderable, templatable {
         $data->searchusers = [];
         foreach ($users as $user) {
             $addurl = new moodle_url($this->baseurl, [
-            'action' => 'add',
-            'userid' => $user->id,
-            'sesskey' => sesskey(),
-            ]);
+                                                      'action' => 'add',
+                                                      'userid' => $user->id,
+                                                      'sesskey' => sesskey(),
+                                                     ]);
 
             $data->searchusers[] = [
-                'userid' => $user->id,
-                'fullname' => fullname($user),
-                'email' => $user->email,
-                'addurl' => $addurl->out(false),
-                'addtext' => get_string('add'),
-                'profileurl' => (new moodle_url('/user/view.php', [
-                'id' => $user->id, 'course' => $this->course->id,
-                ]))->out(false),
-            ];
+                                    'userid' => $user->id,
+                                    'fullname' => fullname($user),
+                                    'email' => $user->email,
+                                    'addurl' => $addurl->out(false),
+                                    'addtext' => get_string('add'),
+                                    'profileurl' => (new moodle_url('/user/view.php', [
+                                                                                       'id' => $user->id,
+                                                                                       'course' => $this->course->id,
+                                                                                      ]))->out(false),
+                                   ];
         }
 
-        $data->hassearchusers = !empty($data->searchusers);
-        $data->nousersfound = !empty($this->search) && empty($data->searchusers);
-        $data->searchplaceholder = get_string('searchplaceholder', 'block_mark_manager');
+        $data->hassearchusers     = !empty($data->searchusers);
+        $data->nousersfound       = !empty($this->search) && empty($data->searchusers);
+        $data->searchplaceholder  = get_string('searchplaceholder', 'block_mark_manager');
         $data->searchusersheading = get_string('searchusers', 'block_mark_manager');
 
-        $data->totalcount = $totalcount;
-        $data->perpage = $this->perpage;
+        $data->totalcount  = $totalcount;
+        $data->perpage     = $this->perpage;
         $data->currentpage = $this->page;
-        $data->haspaging = $totalcount > $this->perpage;
+        $data->haspaging   = $totalcount > $this->perpage;
 
         if ($data->haspaging) {
-            $pagingurl = new moodle_url($this->baseurl, ['search' => $this->search]);
+            $pagingurl       = new moodle_url($this->baseurl, ['search' => $this->search]);
             $data->pagingbar = $output->paging_bar(
                 $totalcount,
                 $this->page,
@@ -198,34 +195,38 @@ class manage_access_page implements renderable, templatable {
         $data->accessusers = [];
         foreach ($accessusers as $auser) {
             $removeurl = new moodle_url($this->baseurl, [
-            'action' => 'remove',
-            'userid' => $auser->id,
-            'sesskey' => sesskey(),
-            ]);
+                                                         'action' => 'remove',
+                                                         'userid' => $auser->id,
+                                                         'sesskey' => sesskey(),
+                                                        ]);
 
             $data->accessusers[] = [
-                'userid' => $auser->id,
-                'fullname' => fullname($auser),
-                'email' => $auser->email,
-                'dategranted' => userdate($auser->timecreated, get_string('strftimedatetimeshort', 'langconfig')),
-                'removeurl' => $removeurl->out(false),
-                'removetext' => get_string('remove'),
-                'confirmtext' => get_string('confirmremove', 'block_mark_manager'),
-                'profileurl' => (new moodle_url('/user/view.php', [
-                'id' => $auser->id, 'course' => $this->course->id,
-                ]))->out(false),
-            ];
+                                    'userid' => $auser->id,
+                                    'fullname' => fullname($auser),
+                                    'email' => $auser->email,
+                                    'dategranted' => userdate(
+                                        $auser->timecreated,
+                                        get_string('strftimedatetimeshort', 'langconfig')
+                                    ),
+                                    'removeurl' => $removeurl->out(false),
+                                    'removetext' => get_string('remove'),
+                                    'confirmtext' => get_string('confirmremove', 'block_mark_manager'),
+                                    'profileurl' => (new moodle_url('/user/view.php', [
+                                                                                       'id' => $auser->id,
+                                                                                       'course' => $this->course->id,
+                                                                                      ]))->out(false),
+                                   ];
         }
 
-        $data->hasaccessusers = !empty($data->accessusers);
-        $data->nouserhasaccess = empty($data->accessusers);
+        $data->hasaccessusers     = !empty($data->accessusers);
+        $data->nouserhasaccess    = empty($data->accessusers);
         $data->accessusersheading = get_string('userswithaccess', 'block_mark_manager');
         $data->dategrantedheading = get_string('dategranted', 'block_mark_manager');
 
-        $data->pageheading = get_string('manageaccess', 'block_mark_manager');
+        $data->pageheading     = get_string('manageaccess', 'block_mark_manager');
         $data->fullnameheading = get_string('fullname');
-        $data->emailheading = get_string('email');
-        $data->actionsheading = get_string('actions');
+        $data->emailheading    = get_string('email');
+        $data->actionsheading  = get_string('actions');
 
         return $data;
     }

@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Метаданные версии плагина «Менеджер оценивания».
+ * Version metadata of the "Mark Manager" plugin.
  *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
@@ -24,9 +24,9 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2026062906;
-$plugin->requires  = 2020061500;
-$plugin->component = 'block_mark_manager';
-$plugin->maturity  = MATURITY_ALPHA;
-$plugin->release   = 'v0.1.0';
+$plugin->version     = 2026062906;
+$plugin->requires    = 2020061500;
+$plugin->component   = 'block_mark_manager';
+$plugin->maturity    = MATURITY_ALPHA;
+$plugin->release     = 'v0.1.0';
 $plugin->description = '';

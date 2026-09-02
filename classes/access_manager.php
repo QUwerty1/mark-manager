@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Менеджер управления индивидуальным доступом.
+ * Manager of individual access to the block.
  *
  * @package    block_mark_manager
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
@@ -25,30 +25,30 @@
 namespace block_mark_manager;
 
 /**
- * Менеджер управления индивидуальным доступом.
+ * Manager of individual access to the block.
  */
 class access_manager {
-    /** @var int */
+    /** @var int $courseid Course ID. */
     protected $courseid;
 
-    /** @var \context_course */
+    /** @var \context_course $context Course context. */
     protected $context;
 
     /**
-     * Конструктор
+     * Constructor.
      *
-     * @param int $courseid
+     * @param int $courseid Course ID.
      */
     public function __construct($courseid) {
         $this->courseid = $courseid;
-        $this->context = \context_course::instance($courseid);
+        $this->context  = \context_course::instance($courseid);
     }
 
     /**
-     * Предоставление доступа пользователю
+     * Grants individual access to a user.
      *
-     * @param int $userid
-     * @return bool Статус успешно/неуспешно
+     * @param int $userid User ID.
+     * @return bool True on success, false otherwise.
      */
     public function grant_access($userid) {
         global $DB;
@@ -59,17 +59,17 @@ class access_manager {
 
         if (
             $DB->record_exists('block_mark_manager_access', [
-                'courseid' => $this->courseid,
-                'userid' => $userid,
-            ])
+                                                             'courseid' => $this->courseid,
+                                                             'userid' => $userid,
+                                                            ])
         ) {
             return false;
         }
 
-        $record = new \stdClass();
-        $record->courseid = $this->courseid;
-        $record->userid = $userid;
-        $record->timecreated = time();
+        $record               = new \stdClass();
+        $record->courseid     = $this->courseid;
+        $record->userid       = $userid;
+        $record->timecreated  = time();
         $record->timemodified = time();
 
         $DB->insert_record('block_mark_manager_access', $record);
@@ -77,30 +77,30 @@ class access_manager {
     }
 
     /**
-     * Отзыв доступа у пользователя
+     * Revokes individual access from a user.
      *
-     * @param int $userid
-     * @return bool Статус успешно/неуспешно
+     * @param int $userid User ID.
+     * @return bool True on success, false otherwise.
      */
     public function revoke_access($userid) {
         global $DB;
         return $DB->delete_records('block_mark_manager_access', [
-            'courseid' => $this->courseid,
-            'userid' => $userid,
-        ]);
+                                                                 'courseid' => $this->courseid,
+                                                                 'userid' => $userid,
+                                                                ]);
     }
 
     /**
-     * Проверка доступа у пользователя.
+     * Checks whether a user has individual access.
      *
-     * @param int $userid
-     * @return bool
+     * @param int $userid User ID.
+     * @return bool True when the user has access.
      */
     public function has_access($userid) {
         global $DB;
         return $DB->record_exists('block_mark_manager_access', [
-            'courseid' => $this->courseid,
-            'userid' => $userid,
-        ]);
+                                                                'courseid' => $this->courseid,
+                                                                'userid' => $userid,
+                                                               ]);
     }
 }
