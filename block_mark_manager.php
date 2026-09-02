@@ -99,13 +99,13 @@ class block_mark_manager extends block_base
                    ];
 
         $reports[] = [
-                      'url' => '',
+                      'url' => new moodle_url('/grade/report/grader/index.php', ['id' => $this->page->course->id]),
                       'icon' => 'i/grades',
                       'label' => get_string('progressreport', 'block_mark_manager'),
                      ];
 
         $reports[] = [
-                      'url' => '',
+                      'url' => new moodle_url('/user/index.php', ['id' => $this->page->course->id]),
                       'icon' => 'i/group',
                       'label' => get_string('studentlist', 'block_mark_manager'),
                      ];
