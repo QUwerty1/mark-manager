@@ -44,6 +44,9 @@ function block_mark_manager_register_handlers(): void {
     if ($registry->get_handler('quiz') === null) {
         $registry->register(new submission_handlers\quiz_handler());
     }
+    if ($registry->get_handler('forum') === null) {
+        $registry->register(new submission_handlers\forum_handler());
+    }
 }
 
 /**

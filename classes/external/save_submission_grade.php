@@ -37,6 +37,7 @@ use moodle_exception;
 use block_mark_manager\local\submission_handler_registry;
 use block_mark_manager\local\submission_handlers\assign_handler;
 use block_mark_manager\local\submission_handlers\quiz_handler;
+use block_mark_manager\local\submission_handlers\forum_handler;
 
 /**
  * Web service for saving a submission grade.
@@ -55,6 +56,9 @@ class save_submission_grade extends external_api {
         }
         if ($registry->get_handler('quiz') === null) {
             $registry->register(new quiz_handler());
+        }
+        if ($registry->get_handler('forum') === null) {
+            $registry->register(new forum_handler());
         }
     }
 

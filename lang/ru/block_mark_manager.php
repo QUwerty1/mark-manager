@@ -114,3 +114,11 @@ $string['submissionrequired']      = 'Требуется сдача работы
 $string['submissionrequired_desc'] = 'Задание ещё не сдано студентом. Оценивать можно только сданные работы.';
 $string['attemptrequired']         = 'Требуется попытка';
 $string['attemptrequired_desc']    = 'Студент ещё не завершил этот тест. Оценивать можно только завершённые попытки.';
+
+// Forum grading.
+$string['forumposts']              = 'постов';
+$string['studentposts']            = 'Посты студента';
+$string['aggregatedgrade']         = 'Итоговая оценка';
+$string['rating']                  = 'Рейтинг';
+$string['forumpostsrequired']      = 'Требуются посты в форуме';
+$string['forumpostsrequired_desc'] = 'Студент ещё не оставил ни одного поста в этом форуме. Оценивать можно только студентов с постами.';

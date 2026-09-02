@@ -121,3 +121,11 @@ $string['submissionrequired']      = 'Submission required';
 $string['submissionrequired_desc'] = 'This assignment has not been submitted by the student. You can only grade submitted work.';
 $string['attemptrequired']         = 'Attempt required';
 $string['attemptrequired_desc']    = 'This student has not completed the quiz yet. You can only grade finished attempts.';
+
+// Forum grading.
+$string['forumposts']              = 'posts';
+$string['studentposts']            = 'Student posts';
+$string['aggregatedgrade']         = 'Aggregated grade';
+$string['rating']                  = 'Rating';
+$string['forumpostsrequired']      = 'Forum posts required';
+$string['forumpostsrequired_desc'] = 'This student has not posted in this forum yet. You can only grade students who have posted.';

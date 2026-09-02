@@ -1,0 +1,111 @@
+{{! @template block_mark_manager/grading_forum }}
+{{#issubmitted}}
+<form class="mm-grade-form"
+      data-type="{{typeidentifier}}"
+      data-workid="{{workid}}"
+      data-userid="{{userid}}">
+    <div class="mm-grade-header mb-3 pb-3 border-bottom">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+            <h5 class="mb-0">{{studentname}}</h5>
+            {{#gradingurl}}
+                <a href="{{gradingurl}}"
+                   class="btn btn-outline-secondary btn-sm ml-2 flex-shrink-0"
+                   title="{{#str}} openfullgrading, block_mark_manager {{/str}}"
+                   target="_blank">
+                    <i class="fa fa-external-link mr-1"></i>
+                    {{#str}} openfullgrading, block_mark_manager {{/str}}
+                </a>
+            {{/gradingurl}}
+        </div>
+        <p class="text-muted mb-1">{{workname}}</p>
+        <p class="text-muted mb-0">
+            <strong>{{postcount}}</strong> {{#str}} forumposts, block_mark_manager {{/str}}
+        </p>
+    </div>
+
+    {{! === Student posts === }}
+    {{#hasposts}}
+    <div class="mm-forum-posts-block mb-3">
+        <h6 class="text-muted text-uppercase small font-weight-bold">
+            {{#str}} studentposts, block_mark_manager {{/str}}
+        </h6>
+        <div class="mm-posts-list">
+            {{#posts}}
+            <div class="mm-forum-post border rounded p-3 mb-2 bg-light">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <strong>{{subject}}</strong>
+                    {{#hasrating}}
+                        <span class="badge badge-success">
+                            {{#str}} rating, block_mark_manager {{/str}}: {{rating}}
+                        </span>
+                    {{/hasrating}}
+                </div>
+                <div class="mm-post-message small">
+                    {{{message}}}
+                </div>
+                <small class="text-muted">{{created}}</small>
+            </div>
+            {{/posts}}
+        </div>
+    </div>
+    {{/hasposts}}
+
+    {{! === Aggregated grade === }}
+    {{#hasaggregatedgrade}}
+    <div class="mm-aggregated-grade-block mb-3 p-3 border rounded bg-info text-white">
+        <h6 class="mb-0">
+            {{#str}} aggregatedgrade, block_mark_manager {{/str}}:
+            <strong>{{aggregatedgrade}}</strong> / {{maxgrade}}
+        </h6>
+    </div>
+    {{/hasaggregatedgrade}}
+
+    {{! === Grading form === }}
+    <div class="mm-grading-block mt-4">
+        <div class="form-group">
+            <label for="mm-grade-input" class="font-weight-bold">
+                {{#str}} gradevalue, block_mark_manager {{/str}}
+            </label>
+            <input type="number"
+                   class="form-control"
+                   id="mm-grade-input"
+                   name="grade"
+                   min="0"
+                   max="{{maxgrade}}"
+                   step="0.01"
+                   value="{{#hasaggregatedgrade}}{{aggregatedgrade}}{{/hasaggregatedgrade}}"
+                   placeholder="0 — {{maxgrade}}"
+                   required>
+            <small class="form-text text-muted">
+                {{#str}} maxmark, block_mark_manager {{/str}}: {{maxgrade}}
+            </small>
+        </div>
+
+        <div class="form-group">
+            <label for="mm-feedback-input" class="font-weight-bold">
+                {{#str}} feedback, block_mark_manager {{/str}}
+            </label>
+            <textarea class="form-control"
+                      id="mm-feedback-input"
+                      name="feedback"
+                      rows="4"
+                      placeholder="{{#str}} feedbackplaceholder, block_mark_manager {{/str}}"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">
+            <i class="fa fa-save mr-1"></i>
+            {{#str}} savegrade, block_mark_manager {{/str}}
+        </button>
+    </div>
+</form>
+{{/issubmitted}}
+{{^issubmitted}}
+<div class="alert alert-warning text-center my-4">
+    <i class="fa fa-exclamation-triangle fa-2x mb-2 d-block"></i>
+    <h5>{{#str}} forumpostsrequired, block_mark_manager {{/str}}</h5>
+    <p class="mb-2">{{#str}} forumpostsrequired_desc, block_mark_manager {{/str}}</p>
+    <small class="text-muted">
+        <strong>{{studentname}}</strong> — {{workname}}
+    </small>
+</div>
+{{/issubmitted}}
