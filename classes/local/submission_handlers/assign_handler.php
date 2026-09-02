@@ -61,11 +61,17 @@ class assign_handler implements submission_handler_interface {
     public function get_ungraded_count(int $courseid): int {
         global $DB;
 
+        $coursecontext = context_course::instance($courseid);
+        $enrolledsql   = get_enrolled_sql($coursecontext, 'mod/assign:submit');
+        $esql          = $enrolledsql[0];
+        $params        = $enrolledsql[1];
+
         $sql = "SELECT COUNT(DISTINCT s.id)
                   FROM {assign} a
                   JOIN {course_modules} cm ON cm.instance = a.id AND cm.course = a.course
                   JOIN {modules} m ON m.id = cm.module AND m.name = 'assign'
                   JOIN {assign_submission} s ON s.assignment = a.id
+                  JOIN ($esql) eu ON eu.id = s.userid
              LEFT JOIN {assign_grades} g ON g.assignment = a.id
                                           AND g.userid = s.userid
                                           AND g.attemptnumber = s.attemptnumber
@@ -75,7 +81,9 @@ class assign_handler implements submission_handler_interface {
                    AND s.latest = 1
                    AND ((g.grade IS NULL OR g.grade = -1) OR g.timemodified < s.timemodified)";
 
-        return (int) $DB->count_records_sql($sql, ['courseid' => $courseid]);
+        $params['courseid'] = $courseid;
+
+        return (int) $DB->count_records_sql($sql, $params);
     }
 
     /**
@@ -92,7 +100,7 @@ class assign_handler implements submission_handler_interface {
         $esql          = $enrolledsql[0];
         $params        = $enrolledsql[1];
 
-        $sql = "SELECT COUNT(DISTINCT u.id)
+        $sql = "SELECT COUNT(DISTINCT CONCAT(u.id, '-', a.id))
                   FROM {user} u
                   JOIN ($esql) eu ON eu.id = u.id
                   JOIN {assign} a ON a.course = :courseid
@@ -161,7 +169,8 @@ class assign_handler implements submission_handler_interface {
         $esql          = $enrolledsql[0];
         $params        = $enrolledsql[1];
 
-        $sql = "SELECT u.id AS userid, u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic,
+        $sql = "SELECT CONCAT(u.id, '-', a.id) AS workkey, u.id AS userid,
+                       u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic,
                        u.middlename, u.alternatename,
                        a.id AS assignid, a.name AS assignname, a.duedate,
                        s.id AS submissionid, s.status AS submissionstatus, s.timemodified AS subtimemodified,

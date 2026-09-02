@@ -55,7 +55,7 @@ class forum_handler implements submission_handler_interface {
     }
 
     /**
-     * Returns the number of students with posts but without a rating.
+     * Returns the number of forum works (student × forum) with posts but without any rating.
      *
      * @param int $courseid Course ID.
      * @return int Number of ungraded forum works.
@@ -68,7 +68,7 @@ class forum_handler implements submission_handler_interface {
         $esql          = $enrolledsql[0];
         $params        = $enrolledsql[1];
 
-        $sql = "SELECT COUNT(DISTINCT u.id)
+        $sql = "SELECT COUNT(DISTINCT CONCAT(u.id, '-', f.id))
                   FROM {user} u
                   JOIN ($esql) eu ON eu.id = u.id
                   JOIN {forum} f ON f.course = :courseid
@@ -76,11 +76,19 @@ class forum_handler implements submission_handler_interface {
                   JOIN {modules} m ON m.id = cm.module AND m.name = 'forum'
                   JOIN {forum_discussions} fd ON fd.forum = f.id AND fd.userid = u.id
                   JOIN {forum_posts} fp ON fp.discussion = fd.id AND fp.userid = u.id
-             LEFT JOIN {rating} r ON r.itemid = fp.id AND r.component = :component AND r.ratingarea = :ratingarea
                  WHERE u.deleted = 0
                    AND cm.deletioninprogress = 0
                    AND f.assessed > 0
-                   AND r.id IS NULL";
+                   AND NOT EXISTS (
+                       SELECT 1
+                         FROM {forum_posts} fpr
+                         JOIN {forum_discussions} fdr ON fdr.id = fpr.discussion
+                         JOIN {rating} r ON r.itemid = fpr.id
+                        WHERE fpr.userid = u.id
+                          AND fdr.forum = f.id
+                          AND r.component = :component
+                          AND r.ratingarea = :ratingarea
+                   )";
 
         $params['courseid']   = $courseid;
         $params['component']  = 'mod_forum';
@@ -90,7 +98,7 @@ class forum_handler implements submission_handler_interface {
     }
 
     /**
-     * Returns the number of students without any post in the rated forums.
+     * Returns the number of forum works (student × forum) without any post in the rated forums.
      *
      * @param int $courseid Course ID.
      * @return int Number of unsubmitted forum works.
@@ -103,7 +111,7 @@ class forum_handler implements submission_handler_interface {
         $esql          = $enrolledsql[0];
         $params        = $enrolledsql[1];
 
-        $sql = "SELECT COUNT(DISTINCT u.id)
+        $sql = "SELECT COUNT(DISTINCT CONCAT(u.id, '-', f.id))
                   FROM {user} u
                   JOIN ($esql) eu ON eu.id = u.id
                   JOIN {forum} f ON f.course = :courseid
@@ -126,7 +134,7 @@ class forum_handler implements submission_handler_interface {
     }
 
     /**
-     * Returns the number of students with posts and a rating.
+     * Returns the number of forum works (student × forum) with posts and a rating.
      *
      * @param int $courseid Course ID.
      * @return int Number of graded forum works.
@@ -139,7 +147,7 @@ class forum_handler implements submission_handler_interface {
         $esql          = $enrolledsql[0];
         $params        = $enrolledsql[1];
 
-        $sql = "SELECT COUNT(DISTINCT u.id)
+        $sql = "SELECT COUNT(DISTINCT CONCAT(u.id, '-', f.id))
                   FROM {user} u
                   JOIN ($esql) eu ON eu.id = u.id
                   JOIN {forum} f ON f.course = :courseid
@@ -174,7 +182,8 @@ class forum_handler implements submission_handler_interface {
         $esql          = $enrolledsql[0];
         $params        = $enrolledsql[1];
 
-        $sql = "SELECT u.id AS userid, u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic,
+        $sql = "SELECT CONCAT(u.id, '-', f.id) AS workkey, u.id AS userid,
+                       u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic,
                        u.middlename, u.alternatename,
                        f.id AS forumid, f.name AS forumname, f.scale,
                        cm.id AS cmid

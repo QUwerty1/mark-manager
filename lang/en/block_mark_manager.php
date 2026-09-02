@@ -129,3 +129,8 @@ $string['aggregatedgrade']         = 'Aggregated grade';
 $string['rating']                  = 'Rating';
 $string['forumpostsrequired']      = 'Forum posts required';
 $string['forumpostsrequired_desc'] = 'This student has not posted in this forum yet. You can only grade students who have posted.';
+
+// Pagination.
+$string['previouspage'] = 'Previous';
+$string['nextpage']     = 'Next';
+$string['pageof']       = 'Page {$a->current} of {$a->total}';

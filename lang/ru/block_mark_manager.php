@@ -122,3 +122,8 @@ $string['aggregatedgrade']         = 'Итоговая оценка';
 $string['rating']                  = 'Рейтинг';
 $string['forumpostsrequired']      = 'Требуются посты в форуме';
 $string['forumpostsrequired_desc'] = 'Студент ещё не оставил ни одного поста в этом форуме. Оценивать можно только студентов с постами.';
+
+// Pagination.
+$string['previouspage'] = 'Назад';
+$string['nextpage']     = 'Вперёд';
+$string['pageof']       = 'Страница {$a->current} из {$a->total}';

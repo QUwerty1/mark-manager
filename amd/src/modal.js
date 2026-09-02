@@ -18,7 +18,7 @@ define([
 
     var courseid = 0;
     var modalPromise = null;
-    var currentFilters = {status: "", student: "", groupby: "none"};
+    var currentFilters = {status: "", student: "", groupby: "none", page: 0};
 
     var getModal = function () {
         if (modalPromise === null) {
@@ -55,6 +55,7 @@ define([
             if (js) {
                 Templates.runTemplateJS(js);
             }
+            $(".mm-modal-list").scrollTop(0);
         }).fail(Notification.exception);
     };
 
@@ -128,7 +129,7 @@ define([
 
     var openModal = function (status) {
         getModal().then(function (modal) {
-            currentFilters = {status: status || "", student: "", groupby: "none"};
+            currentFilters = {status: status || "", student: "", groupby: "none", page: 0};
             modal.getBody().find(".mm-filter-status").val(currentFilters.status);
             modal.getBody().find(".mm-filter-student").val("");
             modal.getBody().find(".mm-filter-groupby").val("none");
@@ -190,16 +191,25 @@ define([
 
         $(document).on("change", ".mm-filter-status", function () {
             currentFilters.status = $(this).val();
+            currentFilters.page = 0;
             loadList();
         });
 
         $(document).on("input", ".mm-filter-student", function () {
             currentFilters.student = $(this).val();
+            currentFilters.page = 0;
             loadList();
         });
 
         $(document).on("change", ".mm-filter-groupby", function () {
             currentFilters.groupby = $(this).val();
+            currentFilters.page = 0;
+            loadList();
+        });
+
+        $(document).on("click", ".mm-page-btn", function (e) {
+            e.preventDefault();
+            currentFilters.page = $(this).data("page");
             loadList();
         });
     };

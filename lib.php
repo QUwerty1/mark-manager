@@ -129,8 +129,18 @@ function block_mark_manager_output_fragment_work_list($args): string {
 
         $allworks = $registry->aggregate_works_list($courseid, $filters);
 
+        $page    = clean_param($filters['page'] ?? 0, PARAM_INT);
+        $perpage = clean_param($filters['perpage'] ?? 20, PARAM_INT);
+        $perpage = max(1, min(100, $perpage));
+
+        $totalworks = count($allworks);
+        $totalpages = max(1, (int)ceil($totalworks / $perpage));
+        $page       = min(max(0, $page), $totalpages - 1);
+
+        $paginatedworks = array_slice(array_values($allworks), $page * $perpage, $perpage);
+
         $templateworks = [];
-        foreach ($allworks as $work) {
+        foreach ($paginatedworks as $work) {
             $options = $work->options ?? [];
 
             $groupname = $options['quizname'] ?? $work->workname;
@@ -159,10 +169,22 @@ function block_mark_manager_output_fragment_work_list($args): string {
         $groupby        = $filters['groupby'] ?? 'none';
         $templategroups = block_mark_manager_group_works($courseid, $templateworks, $groupby);
 
+        $pagination = [
+                       'currentpage' => $page + 1,
+                       'totalpages'  => $totalpages,
+                       'totalworks'  => $totalworks,
+                       'prevpage'    => max(0, $page - 1),
+                       'nextpage'    => min($totalpages - 1, $page + 1),
+                       'hasprev'     => $page > 0,
+                       'hasnext'     => $page < $totalpages - 1,
+                      ];
+
         return $OUTPUT->render_from_template('block_mark_manager/work_list', [
                                                                               'groups' => $templategroups,
                                                                               'hasgroups' => !empty($templategroups),
                                                                               'isgrouped' => ($groupby !== 'none'),
+                                                                              'haspagination' => ($totalpages > 1),
+                                                                              'pagination' => $pagination,
                                                                              ]);
     } catch (Exception $e) {
         return '<div class="alert alert-danger"><strong>Error:</strong> ' . s($e->getMessage()) . '</div>';

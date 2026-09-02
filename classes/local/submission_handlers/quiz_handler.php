@@ -112,7 +112,7 @@ class quiz_handler implements submission_handler_interface {
         $esql          = $enrolledsql[0];
         $params        = $enrolledsql[1];
 
-        $sql = "SELECT COUNT(DISTINCT u.id)
+        $sql = "SELECT COUNT(DISTINCT CONCAT(u.id, '-', q.id))
                   FROM {user} u
                   JOIN ($esql) eu ON eu.id = u.id
                   JOIN {quiz} q ON q.course = :courseid
@@ -191,7 +191,8 @@ class quiz_handler implements submission_handler_interface {
         $esql          = $enrolledsql[0];
         $params        = $enrolledsql[1];
 
-        $sql = "SELECT u.id AS userid, u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic,
+        $sql = "SELECT CONCAT(u.id, '-', q.id, '-', qa.id) AS workkey, u.id AS userid,
+                       u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic,
                        u.middlename, u.alternatename,
                        q.id AS quizid, q.name AS quizname, q.timeclose, q.grade AS maxgrade,
                        cm.id AS cmid,
