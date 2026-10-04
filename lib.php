@@ -28,26 +28,6 @@
  */
 
 use block_mark_manager\local\submission_handler_registry;
-use block_mark_manager\local\submission_handlers;
-
-/**
- * Registers the default submission handlers in the registry.
- *
- * @return void
- */
-function block_mark_manager_register_handlers(): void {
-    $registry = submission_handler_registry::instance();
-
-    if ($registry->get_handler('assign') === null) {
-        $registry->register(new submission_handlers\assign_handler());
-    }
-    if ($registry->get_handler('quiz') === null) {
-        $registry->register(new submission_handlers\quiz_handler());
-    }
-    if ($registry->get_handler('forum') === null) {
-        $registry->register(new submission_handlers\forum_handler());
-    }
-}
 
 /**
  * Checks hierarchical access to the block for the given course.
@@ -124,8 +104,8 @@ function block_mark_manager_output_fragment_work_list($args): string {
                    get_string('nopermissions', 'error', 'view submissions') . '</div>';
         }
 
-        block_mark_manager_register_handlers();
         $registry = submission_handler_registry::instance();
+        $registry->register_default();
 
         $allworks = $registry->aggregate_works_list($courseid, $filters);
 
@@ -315,8 +295,8 @@ function block_mark_manager_output_fragment_grade_work($args): string {
                    get_string('nopermissions', 'error', 'grade submissions') . '</div>';
         }
 
-        block_mark_manager_register_handlers();
         $registry = submission_handler_registry::instance();
+        $registry->register_default();
         $handler  = $registry->get_handler($type);
 
         if ($handler === null) {

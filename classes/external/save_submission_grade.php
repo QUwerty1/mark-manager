@@ -35,33 +35,11 @@ use external_single_structure;
 use context_module;
 use moodle_exception;
 use block_mark_manager\local\submission_handler_registry;
-use block_mark_manager\local\submission_handlers\assign_handler;
-use block_mark_manager\local\submission_handlers\quiz_handler;
-use block_mark_manager\local\submission_handlers\forum_handler;
 
 /**
  * Web service for saving a submission grade.
  */
 class save_submission_grade extends external_api {
-    /**
-     * Registers the submission handlers in the registry.
-     *
-     * @return void
-     */
-    protected static function register_handlers(): void {
-        $registry = submission_handler_registry::instance();
-
-        if ($registry->get_handler('assign') === null) {
-            $registry->register(new assign_handler());
-        }
-        if ($registry->get_handler('quiz') === null) {
-            $registry->register(new quiz_handler());
-        }
-        if ($registry->get_handler('forum') === null) {
-            $registry->register(new forum_handler());
-        }
-    }
-
     /**
      * Returns the description of the web service parameters.
      *
@@ -145,9 +123,8 @@ class save_submission_grade extends external_api {
         self::validate_context($context);
         require_capability('block/mark_manager:grade', $context);
 
-        self::register_handlers();
-
         $registry = submission_handler_registry::instance();
+        $registry->register_default();
         $handler  = $registry->get_handler($params['type']);
 
         if ($handler === null) {

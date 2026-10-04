@@ -28,6 +28,9 @@
 
 namespace block_mark_manager\local;
 
+use block_mark_manager\local\submission_handlers\assign_handler;
+use block_mark_manager\local\submission_handlers\forum_handler;
+use block_mark_manager\local\submission_handlers\quiz_handler;
 use block_mark_manager\local\submission_handlers\submission_data;
 use block_mark_manager\local\submission_handlers\submission_handler_interface;
 
@@ -81,6 +84,26 @@ class submission_handler_registry {
      */
     public function register(submission_handler_interface $handler): void {
         $this->handlers[$handler->get_type_identifier()] = $handler;
+    }
+
+    /**
+     * Registers all built-in (default) submission handlers.
+     *
+     * Registers the 'assign', 'quiz' and 'forum' handlers. Handlers that are
+     * already registered (for example, a custom override) are left intact.
+     *
+     * @return void
+     */
+    public function register_default(): void {
+        if ($this->get_handler('assign') === null) {
+            $this->register(new assign_handler());
+        }
+        if ($this->get_handler('quiz') === null) {
+            $this->register(new quiz_handler());
+        }
+        if ($this->get_handler('forum') === null) {
+            $this->register(new forum_handler());
+        }
     }
 
     /**

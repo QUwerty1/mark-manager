@@ -62,8 +62,8 @@ class block_mark_manager extends block_base
             return $this->content;
         }
 
-        block_mark_manager_register_handlers();
         $registry = submission_handler_registry::instance();
+        $registry->register_default();
 
         $counts = $registry->aggregate_counts($this->page->course->id);
 
