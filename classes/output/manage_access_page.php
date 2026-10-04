@@ -109,9 +109,9 @@ class manage_access_page implements renderable, templatable {
         if (!empty($this->search)) {
             $searchtrim      = trim($this->search);
             $where           = " AND (" . $DB->sql_like('u.firstname', ':fn', false) .
-                 " OR "  . $DB->sql_like('u.lastname', ':ln', false) .
-                 " OR "  . $DB->sql_like('u.email', ':em', false) .
-                 ")";
+            " OR "  . $DB->sql_like('u.lastname', ':ln', false) .
+            " OR "  . $DB->sql_like('u.email', ':em', false) .
+            ")";
             $sqlparams['fn'] = '%' . $searchtrim . '%';
             $sqlparams['ln'] = '%' . $searchtrim . '%';
             $sqlparams['em'] = '%' . $searchtrim . '%';

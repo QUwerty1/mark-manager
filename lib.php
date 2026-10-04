@@ -50,19 +50,35 @@ function block_mark_manager_user_can_access(int $courseid): bool {
 
     $roles = get_user_roles($context, $USER->id);
 
-    foreach ($roles as $role) {
-        if ($role->shortname === 'manager' || $role->archetype === 'manager') {
-            return true;
+    // Ids of the roles of the "manager" archetype: the standard "manager" role and any custom one.
+    // get_user_roles() returns the role assignments only (with the name and the shortname of the role),
+    // the archetype is not among the returned fields, so the roles of the archetype are looked up separately.
+    $managerarchetypeids = [];
+    foreach (get_archetype_roles('manager') as $managerarchetyperole) {
+        $managerarchetypeids[(int)$managerarchetyperole->id] = true;
+    }
+
+    // Ids of the roles selected in the "viewroles" setting.
+    $allowedroleids = [];
+    $viewroles      = get_config('block_mark_manager', 'viewroles');
+    if (!empty($viewroles)) {
+        foreach (explode(',', $viewroles) as $allowedroleid) {
+            $allowedroleid = trim($allowedroleid);
+            if ($allowedroleid !== '' && ctype_digit($allowedroleid)) {
+                $allowedroleids[(int)$allowedroleid] = true;
+            }
         }
     }
 
-    $viewroles = get_config('block_mark_manager', 'viewroles');
-    if (!empty($viewroles)) {
-        $allowedroleids = explode(',', $viewroles);
-        foreach ($roles as $role) {
-            if (in_array($role->roleid, $allowedroleids)) {
-                return true;
-            }
+    foreach ($roles as $role) {
+        $roleid = (int)$role->roleid;
+
+        if ($role->shortname === 'manager' || isset($managerarchetypeids[$roleid])) {
+            return true;
+        }
+
+        if (isset($allowedroleids[$roleid])) {
+            return true;
         }
     }
 
@@ -101,7 +117,7 @@ function block_mark_manager_output_fragment_work_list($args): string {
 
         if (!block_mark_manager_user_can_access($courseid)) {
             return '<div class="alert alert-warning">' .
-                   get_string('nopermissions', 'error', 'view submissions') . '</div>';
+            get_string('nopermissions', 'error', 'view submissions') . '</div>';
         }
 
         $registry = submission_handler_registry::instance();
@@ -292,7 +308,7 @@ function block_mark_manager_output_fragment_grade_work($args): string {
 
         if (!block_mark_manager_user_can_access((int)$cm->course)) {
             return '<div class="alert alert-warning">' .
-                   get_string('nopermissions', 'error', 'grade submissions') . '</div>';
+            get_string('nopermissions', 'error', 'grade submissions') . '</div>';
         }
 
         $registry = submission_handler_registry::instance();
