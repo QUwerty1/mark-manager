@@ -31,6 +31,7 @@ $string['pluginname'] = 'Менеджер оценок';
 $string['mark_manager:addinstance'] = 'Добавлять новый блок "Менеджер оценивания"';
 $string['mark_manager:view']        = 'Просматривать блок "Менеджер оценивания"';
 $string['mark_manager:manage']      = 'Управлять индивидуальным доступом к блоку "Менеджер оценивания" в курсе';
+$string['mark_manager:grade']       = 'Оценивать работы с помощью блока "Менеджер оценивания"';
 
 // Admin settings.
 $string['viewroles']        = 'Роли с глобальным доступом к блоку';

@@ -17,7 +17,8 @@
 /**
  * Unit tests of the library functions of the block.
  *
- * Test cases U19 - U26 of tests/README.md.
+ * Test cases U19 - U26 of tests/README.md (the counters and the grouping helpers)
+ * and I20 - I23 (the fragment callbacks rendered with real modules).
  *
  * @package    block_mark_manager
  * @category   test
@@ -25,13 +26,17 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers     ::block_mark_manager_user_can_access
  * @covers     ::block_mark_manager_group_works
+ * @covers     ::block_mark_manager_output_fragment_work_list
+ * @covers     ::block_mark_manager_output_fragment_grade_work
  */
 
 namespace block_mark_manager;
 
 defined('MOODLE_INTERNAL') || die();
 
+global $CFG;
 require_once(__DIR__ . '/../lib.php');
+require_once($CFG->dirroot . '/mod/quiz/locallib.php');
 
 /**
  * Unit tests of the library functions of the block.
@@ -43,6 +48,7 @@ class lib_test extends \advanced_testcase {
      * @covers ::block_mark_manager_user_can_access
      */
     public function test_user_can_access_allows_site_admin() {
+        // Test case U19 of tests/README.md.
         $this->resetAfterTest();
 
         $course = $this->getDataGenerator()->create_course();
@@ -60,6 +66,7 @@ class lib_test extends \advanced_testcase {
      * @covers ::block_mark_manager_user_can_access
      */
     public function test_user_can_access_allows_manager_role() {
+        // Test case U20 of tests/README.md.
         $this->resetAfterTest();
 
         $generator = $this->getDataGenerator();
@@ -78,6 +85,7 @@ class lib_test extends \advanced_testcase {
      * @covers ::block_mark_manager_user_can_access
      */
     public function test_user_can_access_allows_role_with_manager_archetype() {
+        // Test case U20 of tests/README.md (extra check of a custom manager role).
         $this->resetAfterTest();
 
         $generator = $this->getDataGenerator();
@@ -102,6 +110,7 @@ class lib_test extends \advanced_testcase {
      * @covers ::block_mark_manager_user_can_access
      */
     public function test_user_can_access_allows_role_from_viewroles_setting() {
+        // Test case U21 of tests/README.md.
         global $DB;
 
         $this->resetAfterTest();
@@ -127,6 +136,7 @@ class lib_test extends \advanced_testcase {
      * @covers ::block_mark_manager_user_can_access
      */
     public function test_user_can_access_allows_individual_access_record() {
+        // Test case U22 of tests/README.md.
         global $DB;
 
         $this->resetAfterTest();
@@ -153,6 +163,7 @@ class lib_test extends \advanced_testcase {
      * @covers ::block_mark_manager_user_can_access
      */
     public function test_user_can_access_denies_user_without_rights() {
+        // Test case U23 of tests/README.md.
         $this->resetAfterTest();
 
         $generator = $this->getDataGenerator();
@@ -188,6 +199,7 @@ class lib_test extends \advanced_testcase {
      * @covers ::block_mark_manager_group_works
      */
     public function test_group_works_returns_single_group_when_groupby_is_none() {
+        // Test case U24 of tests/README.md.
         $this->resetAfterTest();
 
         $course = $this->getDataGenerator()->create_course();
@@ -212,6 +224,7 @@ class lib_test extends \advanced_testcase {
      * @covers ::block_mark_manager_group_works
      */
     public function test_group_works_groups_essays_of_one_quiz_when_groupby_is_assignment() {
+        // Test case U25 of tests/README.md.
         $this->resetAfterTest();
 
         $course = $this->getDataGenerator()->create_course();
@@ -249,6 +262,7 @@ class lib_test extends \advanced_testcase {
      * @covers ::block_mark_manager_group_works
      */
     public function test_group_works_groups_by_course_groups_when_groupby_is_group() {
+        // Test case U26 of tests/README.md.
         $this->resetAfterTest();
 
         $generator = $this->getDataGenerator();
@@ -284,5 +298,159 @@ class lib_test extends \advanced_testcase {
         $this->assertSame([(int)$userb->id], array_column($groups[1]['works'], 'userid'));
         $this->assertSame([(int)$userng->id], array_column($groups[2]['works'], 'userid'));
         $this->assertEquals(1, $groups[2]['count']);
+    }
+    /**
+     * I20: output_fragment_work_list() renders a page of the works list.
+     *
+     * @covers ::block_mark_manager_output_fragment_work_list
+     */
+    public function test_output_fragment_work_list_returns_a_page_of_works() {
+        // Test case I20 of tests/README.md.
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course    = $generator->create_course();
+        $assign    = $generator->create_module('assign', ['course' => $course->id]);
+
+        // Every enrolled student gives one work in the assignment.
+        for ($i = 0; $i < 50; $i++) {
+            $generator->create_and_enrol($course, 'student');
+        }
+
+        $this->setAdminUser();
+
+        $html = \block_mark_manager_output_fragment_work_list([
+            'courseid' => (int)$course->id,
+            'filters'  => json_encode(['page' => 0, 'perpage' => 20]),
+        ]);
+
+        $this->assertStringContainsString('block-mark-manager-worklist', $html);
+        // 50 works, 20 per page: the first page shows 20 works and reports 3 pages in total.
+        $this->assertEquals(20, substr_count($html, 'mm-work-item'));
+        $this->assertStringContainsString(
+            get_string('pageof', 'block_mark_manager', (object)['current' => 1, 'total' => 3]),
+            $html
+        );
+        // The page buttons carry the zero based number of the page to load.
+        $this->assertStringContainsString('data-page="1"', $html);
+    }
+
+    /**
+     * I21: output_fragment_work_list() warns a user without access.
+     *
+     * @covers ::block_mark_manager_output_fragment_work_list
+     */
+    public function test_output_fragment_work_list_warns_a_user_without_access() {
+        // Test case I21 of tests/README.md.
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course    = $generator->create_course();
+        $assign    = $generator->create_module('assign', ['course' => $course->id]);
+
+        // The student has neither a manager role, nor an individual access record.
+        $student = $generator->create_and_enrol($course, 'student');
+        $this->setUser($student);
+
+        $html = \block_mark_manager_output_fragment_work_list([
+            'courseid' => (int)$course->id,
+            'filters'  => json_encode([]),
+        ]);
+
+        $this->assertStringContainsString('alert alert-warning', $html);
+        $this->assertStringContainsString(
+            get_string('nopermissions', 'error', 'view submissions'),
+            $html
+        );
+        $this->assertStringNotContainsString('block-mark-manager-worklist', $html);
+    }
+
+    /**
+     * I22: output_fragment_grade_work() renders the grading form of an assignment.
+     *
+     * @covers ::block_mark_manager_output_fragment_grade_work
+     */
+    public function test_output_fragment_grade_work_returns_the_grading_form() {
+        // Test case I22 of tests/README.md.
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course    = $generator->create_course();
+        $assign    = $generator->create_module('assign', ['course' => $course->id]);
+
+        $student = $generator->create_and_enrol($course, 'student', ['firstname' => 'Иван', 'lastname' => 'Иванов']);
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+
+        // The student has submitted the work, so it can be graded.
+        $submission                = new \stdClass();
+        $submission->assignment    = $assign->id;
+        $submission->userid        = $student->id;
+        $submission->groupid       = 0;
+        $submission->attemptnumber = 0;
+        $submission->timecreated   = time();
+        $submission->timemodified  = time();
+        $submission->status        = 'submitted';
+        $submission->latest        = 1;
+        $DB->insert_record('assign_submission', $submission);
+
+        // The teacher may grade the works of the block.
+        $manager = new access_manager($course->id);
+        $manager->grant_access($teacher->id);
+
+        $this->setUser($teacher);
+
+        $html = \block_mark_manager_output_fragment_grade_work([
+            'type'   => 'assign',
+            'workid' => (int)$assign->cmid,
+            'userid' => (int)$student->id,
+        ]);
+
+        $this->assertStringContainsString('mm-grade-form', $html);
+        $this->assertStringContainsString('data-type="assign"', $html);
+        $this->assertStringContainsString(fullname($student), $html);
+        $this->assertStringContainsString($assign->name, $html);
+    }
+
+    /**
+     * I23: output_fragment_grade_work() warns about an unfinished quiz attempt.
+     *
+     * @covers ::block_mark_manager_output_fragment_grade_work
+     */
+    public function test_output_fragment_grade_work_warns_about_an_unfinished_attempt() {
+        // Test case I23 of tests/README.md.
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course    = $generator->create_course();
+        $quiz      = $generator->create_module('quiz', ['course' => $course->id]);
+
+        $questiongenerator = $generator->get_plugin_generator('core_question');
+        $category          = $questiongenerator->create_question_category();
+        $question          = $questiongenerator->create_question('essay', null, ['category' => $category->id]);
+        quiz_add_quiz_question($question->id, $quiz, 0, 10.0);
+        quiz_update_sumgrades($quiz);
+
+        // The student has never finished the quiz.
+        $student = $generator->create_and_enrol($course, 'student');
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+
+        $manager = new access_manager($course->id);
+        $manager->grant_access($teacher->id);
+
+        $this->setUser($teacher);
+
+        $html = \block_mark_manager_output_fragment_grade_work([
+            'type'   => 'quiz',
+            'workid' => (int)$quiz->cmid,
+            'userid' => (int)$student->id,
+            'slot'   => 1,
+        ]);
+
+        $this->assertStringContainsString('alert alert-warning', $html);
+        $this->assertStringContainsString(get_string('attemptrequired', 'block_mark_manager'), $html);
+        // The grading form itself is not rendered without a finished attempt.
+        $this->assertStringNotContainsString('mm-grade-form', $html);
     }
 }

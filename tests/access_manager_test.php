@@ -23,12 +23,9 @@
  * @category   test
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \block_mark_manager\access_manager
  */
 
 namespace block_mark_manager;
-
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Unit tests of the individual access manager.
@@ -63,6 +60,7 @@ class access_manager_test extends \advanced_testcase {
      * @covers ::grant_access
      */
     public function test_grant_access_creates_record() {
+        // Test case U13 of tests/README.md.
         global $DB;
 
         $this->resetAfterTest();
@@ -88,6 +86,7 @@ class access_manager_test extends \advanced_testcase {
      * @covers ::grant_access
      */
     public function test_grant_access_does_not_duplicate_record() {
+        // Test case U14 of tests/README.md.
         global $DB;
 
         $this->resetAfterTest();
@@ -107,6 +106,7 @@ class access_manager_test extends \advanced_testcase {
      * @covers ::grant_access
      */
     public function test_grant_access_rejects_not_enrolled_user() {
+        // Test case U15 of tests/README.md.
         global $DB;
 
         $this->resetAfterTest();
@@ -128,6 +128,7 @@ class access_manager_test extends \advanced_testcase {
      * @covers ::revoke_access
      */
     public function test_revoke_access_deletes_record() {
+        // Test case U16 of tests/README.md.
         global $DB;
 
         $this->resetAfterTest();
@@ -151,6 +152,7 @@ class access_manager_test extends \advanced_testcase {
      * @covers ::has_access
      */
     public function test_has_access_returns_true_for_existing_record() {
+        // Test case U17 of tests/README.md.
         $this->resetAfterTest();
         $user = $this->create_course_and_user();
 
@@ -166,6 +168,7 @@ class access_manager_test extends \advanced_testcase {
      * @covers ::has_access
      */
     public function test_has_access_returns_false_for_missing_record() {
+        // Test case U18 of tests/README.md.
         $this->resetAfterTest();
         $user = $this->create_course_and_user();
 

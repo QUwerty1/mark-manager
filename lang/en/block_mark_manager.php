@@ -31,6 +31,7 @@ $string['pluginname'] = 'Mark Manager';
 $string['mark_manager:addinstance'] = 'Add a new "Mark Manager" block';
 $string['mark_manager:view']        = 'View the "Mark Manager" block';
 $string['mark_manager:manage']      = 'Manage individual access to the "Mark Manager" block in a course';
+$string['mark_manager:grade']       = 'Grade submissions using the "Mark Manager" block';
 
 // Admin settings.
 $string['viewroles']        = 'Roles with global access to the block';

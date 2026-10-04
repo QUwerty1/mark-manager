@@ -17,21 +17,18 @@
 /**
  * Unit tests of the submission handler registry.
  *
- * Test cases U3 - U12 of tests/README.md.
+ * Test cases U3 - U12 and I30 of tests/README.md.
  *
  * @package    block_mark_manager
  * @category   test
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \block_mark_manager\local\submission_handler_registry
  */
 
 namespace block_mark_manager\local;
 
 use block_mark_manager\local\submission_handlers\submission_data;
 use block_mark_manager\local\submission_handlers\submission_handler_interface;
-
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Unit tests of the submission handler registry.
@@ -50,16 +47,15 @@ class submission_handler_registry_test extends \advanced_testcase {
     /**
      * Builds a mocked submission handler.
      *
-     * @param string $typeidentifier Type identifier returned by the handler.
+     * @param string $type Type identifier returned by the handler.
      * @param array $counts Counters with the 'ungraded', 'unsubmitted' and 'graded' keys.
      * @param submission_data[] $works Works returned by get_works_list().
      * @return submission_handler_interface Mocked handler.
      */
-    protected function get_handler_mock(string $typeidentifier, array $counts = [], array $works = []):
-    submission_handler_interface {
+    protected function get_handler_mock(string $type, array $counts = [], array $works = []): submission_handler_interface {
         $handler = $this->createMock(submission_handler_interface::class);
 
-        $handler->method('get_type_identifier')->willReturn($typeidentifier);
+        $handler->method('get_type_identifier')->willReturn($type);
         $handler->method('get_ungraded_count')->willReturn($counts['ungraded'] ?? 0);
         $handler->method('get_unsubmitted_count')->willReturn($counts['unsubmitted'] ?? 0);
         $handler->method('get_graded_count')->willReturn($counts['graded'] ?? 0);
@@ -75,6 +71,7 @@ class submission_handler_registry_test extends \advanced_testcase {
      * @covers ::get_handler
      */
     public function test_register_adds_handler() {
+        // Test case U3 of tests/README.md.
         $this->resetAfterTest();
 
         $registry = $this->get_fresh_registry();
@@ -93,6 +90,7 @@ class submission_handler_registry_test extends \advanced_testcase {
      * @covers ::get_handler
      */
     public function test_register_overwrites_existing_handler() {
+        // Test case U4 of tests/README.md.
         $this->resetAfterTest();
 
         $registry = $this->get_fresh_registry();
@@ -113,6 +111,7 @@ class submission_handler_registry_test extends \advanced_testcase {
      * @covers ::get_handler
      */
     public function test_get_handler_returns_null_for_unregistered_type() {
+        // Test case U5 of tests/README.md.
         $this->resetAfterTest();
 
         $registry = $this->get_fresh_registry();
@@ -128,6 +127,7 @@ class submission_handler_registry_test extends \advanced_testcase {
      * @covers ::get_registered_types
      */
     public function test_get_registered_types() {
+        // Test case U6 of tests/README.md.
         $this->resetAfterTest();
 
         $registry = $this->get_fresh_registry();
@@ -144,6 +144,7 @@ class submission_handler_registry_test extends \advanced_testcase {
      * @covers ::aggregate_counts
      */
     public function test_aggregate_counts_sums_all_handlers() {
+        // Test case U7 of tests/README.md.
         $this->resetAfterTest();
 
         $registry = $this->get_fresh_registry();
@@ -165,6 +166,7 @@ class submission_handler_registry_test extends \advanced_testcase {
      * @covers ::aggregate_works_list
      */
     public function test_aggregate_works_list_filters_by_status() {
+        // Test case U8 of tests/README.md.
         $this->resetAfterTest();
 
         $ungraded    = new submission_data('assign', 5, 10, 'Иванов И.', 'Задание 1', 100, 'ungraded');
@@ -187,6 +189,7 @@ class submission_handler_registry_test extends \advanced_testcase {
      * @covers ::aggregate_works_list
      */
     public function test_aggregate_works_list_filters_by_student_name_ignoring_case() {
+        // Test case U9 of tests/README.md.
         $this->resetAfterTest();
 
         $ivanov  = new submission_data('assign', 5, 10, 'Иванов И.', 'Задание 1', 100);
@@ -209,6 +212,7 @@ class submission_handler_registry_test extends \advanced_testcase {
      * @covers ::aggregate_works_list
      */
     public function test_aggregate_works_list_sorts_by_duedate_ascending() {
+        // Test case U10 of tests/README.md.
         $this->resetAfterTest();
 
         $first  = new submission_data('assign', 5, 10, 'Иванов И.', 'Задание 1', 100);
@@ -229,6 +233,7 @@ class submission_handler_registry_test extends \advanced_testcase {
      * @covers ::aggregate_works_list
      */
     public function test_aggregate_works_list_sorts_by_student_name_descending() {
+        // Test case U11 of tests/README.md.
         $this->resetAfterTest();
 
         $anya  = new submission_data('assign', 5, 10, 'Аня', 'Задание 1', 100);
@@ -254,6 +259,7 @@ class submission_handler_registry_test extends \advanced_testcase {
      * @covers ::aggregate_works_list
      */
     public function test_aggregate_works_list_fills_empty_typeidentifier() {
+        // Test case U12 of tests/README.md.
         $this->resetAfterTest();
 
         // Different due dates keep the order of the aggregated list deterministic.
@@ -273,5 +279,35 @@ class submission_handler_registry_test extends \advanced_testcase {
         $this->assertSame($empty, $works[1]);
         $this->assertSame('quiz', $works[1]->typeidentifier);
         $this->assertSame('quiz', $empty->typeidentifier);
+    }
+    /**
+     * I30: instance() always returns the same registry.
+     *
+     * @covers ::instance
+     */
+    public function test_instance_returns_the_same_registry() {
+        // Test case I30 of tests/README.md.
+        $this->resetAfterTest();
+
+        $this->assertSame(
+            submission_handler_registry::instance(),
+            submission_handler_registry::instance()
+        );
+
+        // The registry is a singleton shared by the whole request, so the handlers
+        // registered in it are restored afterwards to keep the other tests intact.
+        $registry   = submission_handler_registry::instance();
+        $registered = new \ReflectionProperty(submission_handler_registry::class, 'handlers');
+        $registered->setAccessible(true);
+        $original = $registered->getValue($registry);
+
+        try {
+            $registry->register($this->get_handler_mock('assign'));
+
+            $this->assertSame($registry, submission_handler_registry::instance());
+            $this->assertNotNull(submission_handler_registry::instance()->get_handler('assign'));
+        } finally {
+            $registered->setValue($registry, $original);
+        }
     }
 }

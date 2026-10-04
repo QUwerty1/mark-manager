@@ -23,12 +23,9 @@
  * @category   test
  * @copyright  2026 Nikita Semenov <nikita.7nov@mail.ru>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \block_mark_manager\local\submission_handlers\submission_data
  */
 
 namespace block_mark_manager\local\submission_handlers;
-
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Unit tests of the submitted work data object.
@@ -80,6 +77,7 @@ class submission_data_test extends \advanced_testcase {
      * @covers ::__construct
      */
     public function test_constructor_fills_all_fields() {
+        // Test case U1 of tests/README.md.
         $this->resetAfterTest();
 
         $data = $this->get_sample_data();
@@ -103,6 +101,7 @@ class submission_data_test extends \advanced_testcase {
      * @covers ::to_array
      */
     public function test_to_array_returns_associative_array() {
+        // Test case U2 of tests/README.md.
         $this->resetAfterTest();
 
         $arguments = $this->get_sample_data_arguments();
