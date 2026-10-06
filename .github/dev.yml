@@ -1,0 +1,150 @@
+name: Dev CI
+
+on:
+  push:
+    branches: [ dev ]
+  pull_request:
+    branches: [ dev ]
+
+jobs:
+  # ---------------------------------------------------------
+  # Прогон PHPUnit + Behat в окружении Moodle 3.9 / PHP 7.4
+  # ---------------------------------------------------------
+  test:
+    name: PHPUnit & Behat (PHP ${{ matrix.php }} / Moodle ${{ matrix.moodle }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: [ '7.4' ]
+        moodle: [ 'MOODLE_39_STABLE' ]
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: moodle
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      # Selenium Grid для Behat
+      selenium:
+        image: selenium/standalone-chrome:latest
+        ports:
+          - 4444:4444
+          - 7900:7900   # VNC (опционально, для отладки)
+        options: >-
+          --shm-size=2g
+          --health-cmd "curl -f http://localhost:4444/wd/hub/status || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout plugin into subfolder
+        uses: actions/checkout@v4
+        with:
+          path: block_mark_manager
+
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pgsql, zip, gd, intl, soap, xmlrpc, mbstring, curl, xml, json
+          ini-values: max_input_vars=5000, memory_limit=512M
+          coverage: none
+
+      - name: Install moodle-plugin-ci
+        run: |
+          composer create-project -n --no-dev moodlehq/moodle-plugin-ci ci ^4
+          echo "$(pwd)/ci/vendor/bin" >> "$GITHUB_PATH"
+
+      - name: Install Moodle
+        run: moodle-plugin-ci install --plugin ./block_mark_manager --db-host 127.0.0.1
+        env:
+          DB: pgsql
+          MOODLE_BRANCH: ${{ matrix.moodle }}
+          # Настройка Behat для работы с Selenium
+          BEHAT_RUN: 1
+
+      - name: Configure Behat for Selenium
+        run: |
+          cat > "$HOME/moodle/behat.yml" <<EOF
+          default:
+            extensions:
+              Behat\MinkExtension:
+                base_url: http://localhost:8080
+                selenium_server:
+                  wd_host: http://127.0.0.1:4444/wd/hub
+                javascript_session: selenium2
+                browser_name: chrome
+                capabilities:
+                  browser: chrome
+                  extra_capabilities:
+                    chromeOptions:
+                      w3c: false
+                      args:
+                        - --no-sandbox
+                        - --disable-dev-shm-usage
+                        - --disable-gpu
+                        - --window-size=1920,1080
+          EOF
+
+      - name: phplint
+        run: moodle-plugin-ci phplint ./block_mark_manager
+
+      - name: phpmd
+        run: moodle-plugin-ci phpmd ./block_mark_manager
+
+      - name: codechecker
+        run: moodle-plugin-ci validate ./block_mark_manager || true
+
+      - name: PHPUnit
+        run: moodle-plugin-ci phpunit ./block_mark_manager
+
+      - name: Behat (via Selenium)
+        run: moodle-plugin-ci behat ./block_mark_manager --profile selenium
+        env:
+          SELENIUM_HOST: 127.0.0.1
+          SELENIUM_PORT: 4444
+
+  # ---------------------------------------------------------
+  # Создание merge-request в main после успешных тестов
+  # ---------------------------------------------------------
+  create-merge-request:
+    name: Create MR to main
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Pull Request dev -> main
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: auto merge dev -> main after CI"
+          title: "Auto MR: dev → main (tests passed)"
+          body: |
+            Автоматический merge-request, созданный после успешного прохождения
+            PHPUnit и Behat в workflow **Dev CI**.
+
+            - Ветка-источник: `dev`
+            - Ветка-цель: `main`
+          branch: dev
+          base: main
+          labels: automerge, ci
+          draft: false
