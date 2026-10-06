@@ -7,9 +7,6 @@ on:
     branches: [ dev ]
 
 jobs:
-  # ---------------------------------------------------------
-  # Прогон PHPUnit + Behat в окружении Moodle 3.9 / PHP 7.4
-  # ---------------------------------------------------------
   test:
     name: PHPUnit & Behat (PHP ${{ matrix.php }} / Moodle ${{ matrix.moodle }})
     runs-on: ubuntu-latest
@@ -35,12 +32,11 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-      # Selenium Grid для Behat
       selenium:
-        image: selenium/standalone-chrome:latest
+        image: selenium/standalone-chrome:4.11.0
         ports:
           - 4444:4444
-          - 7900:7900   # VNC (опционально, для отладки)
+          - 7900:7900
         options: >-
           --shm-size=2g
           --health-cmd "curl -f http://localhost:4444/wd/hub/status || exit 1"
@@ -49,12 +45,12 @@ jobs:
           --health-retries 5
 
     steps:
-      - name: Checkout plugin into subfolder
+      - name: Checkout plugin
         uses: actions/checkout@v4
         with:
           path: block_mark_manager
 
-      - name: Setup PHP ${{ matrix.php }}
+      - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
@@ -62,63 +58,48 @@ jobs:
           ini-values: max_input_vars=5000, memory_limit=512M
           coverage: none
 
+      - name: Install composer
+        run: |
+          curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+          composer --version
+
       - name: Install moodle-plugin-ci
         run: |
           composer create-project -n --no-dev moodlehq/moodle-plugin-ci ci ^4
-          echo "$(pwd)/ci/vendor/bin" >> "$GITHUB_PATH"
+          # ВАЖНО: бинарник лежит в ci/bin/, а не в ci/vendor/bin/
+          echo "$GITHUB_WORKSPACE/ci/bin" >> $GITHUB_PATH
+
+      - name: Verify moodle-plugin-ci installed
+        run: |
+          echo "=== ci/bin ==="
+          ls -la ci/bin/
+          echo "=== ci/vendor/bin ==="
+          ls -la ci/vendor/bin/ || true
+          ci/bin/moodle-plugin-ci --version
 
       - name: Install Moodle
-        run: moodle-plugin-ci install --plugin ./block_mark_manager --db-host 127.0.0.1
+        run: ci/bin/moodle-plugin-ci install --plugin ./block_mark_manager --db-host 127.0.0.1
         env:
           DB: pgsql
           MOODLE_BRANCH: ${{ matrix.moodle }}
-          # Настройка Behat для работы с Selenium
-          BEHAT_RUN: 1
-
-      - name: Configure Behat for Selenium
-        run: |
-          cat > "$HOME/moodle/behat.yml" <<EOF
-          default:
-            extensions:
-              Behat\MinkExtension:
-                base_url: http://localhost:8080
-                selenium_server:
-                  wd_host: http://127.0.0.1:4444/wd/hub
-                javascript_session: selenium2
-                browser_name: chrome
-                capabilities:
-                  browser: chrome
-                  extra_capabilities:
-                    chromeOptions:
-                      w3c: false
-                      args:
-                        - --no-sandbox
-                        - --disable-dev-shm-usage
-                        - --disable-gpu
-                        - --window-size=1920,1080
-          EOF
 
       - name: phplint
-        run: moodle-plugin-ci phplint ./block_mark_manager
+        run: ci/bin/moodle-plugin-ci phplint ./block_mark_manager
 
       - name: phpmd
-        run: moodle-plugin-ci phpmd ./block_mark_manager
+        run: ci/bin/moodle-plugin-ci phpmd ./block_mark_manager
 
-      - name: codechecker
-        run: moodle-plugin-ci validate ./block_mark_manager || true
+      - name: validate
+        run: ci/bin/moodle-plugin-ci validate ./block_mark_manager || true
 
       - name: PHPUnit
-        run: moodle-plugin-ci phpunit ./block_mark_manager
+        run: ci/bin/moodle-plugin-ci phpunit ./block_mark_manager
 
-      - name: Behat (via Selenium)
-        run: moodle-plugin-ci behat ./block_mark_manager --profile selenium
+      - name: Behat
+        run: ci/bin/moodle-plugin-ci behat ./block_mark_manager --profile chrome
         env:
-          SELENIUM_HOST: 127.0.0.1
-          SELENIUM_PORT: 4444
+          BEHAT_RUN: 1
 
-  # ---------------------------------------------------------
-  # Создание merge-request в main после успешных тестов
-  # ---------------------------------------------------------
   create-merge-request:
     name: Create MR to main
     needs: test
@@ -139,11 +120,7 @@ jobs:
           commit-message: "chore: auto merge dev -> main after CI"
           title: "Auto MR: dev → main (tests passed)"
           body: |
-            Автоматический merge-request, созданный после успешного прохождения
-            PHPUnit и Behat в workflow **Dev CI**.
-
-            - Ветка-источник: `dev`
-            - Ветка-цель: `main`
+            Автоматический merge-request после успешного прохождения тестов.
           branch: dev
           base: main
           labels: automerge, ci
