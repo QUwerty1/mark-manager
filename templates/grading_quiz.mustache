@@ -1,6 +1,6 @@
 {{! @template block_mark_manager/grading_quiz }}
 {{#issubmitted}}
-<form class="mm-grade-form"
+<form class="mm-grade-form" novalidate
       data-type="{{typeidentifier}}"
       data-workid="{{workid}}"
       data-userid="{{userid}}"
@@ -78,7 +78,7 @@
     <div class="mm-grading-block mt-4">
         <div class="form-group">
             <label for="mm-grade-input" class="font-weight-bold">
-                {{#str}} awardedmark, block_mark_manager {{/str}}
+                {{#str}} gradevalue, block_mark_manager {{/str}}
             </label>
             <input type="number"
                    class="form-control"

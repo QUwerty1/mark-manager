@@ -72,6 +72,8 @@ $string['selectsubmission']      = 'Выберите работу из спис�
 $string['filter_student']        = 'Имя студента';
 $string['filter_status']         = 'Статус';
 $string['status_all']            = 'Все статусы';
+$string['student']               = 'Студент';
+$string['work']                  = 'Работа';
 $string['duedate']               = 'Срок сдачи';
 $string['status_ungraded']       = 'Не оценено';
 $string['status_unsubmitted']    = 'Не сдано';
@@ -103,6 +105,11 @@ $string['openfullgrading']     = 'Открыть страницу оценива
 
 // Quiz essay grading.
 $string['questiontext']            = 'Текст вопроса';
+$string['questionname']            = 'Вопрос';
+$string['questionsummary']         = 'Вопросы, требующие ручной проверки';
+$string['currentmark']             = 'Текущий балл';
+$string['nogradeyet']              = 'Оценка ещё не выставлена';
+$string['noquestions']             = 'Нет вопросов, требующих ручной проверки.';
 $string['questionslot']            = 'Вопрос';
 $string['maxmark']                 = 'Макс. балл';
 $string['noessayresponse']         = 'Ответ на эссе не предоставлен';

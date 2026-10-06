@@ -113,7 +113,7 @@ class save_submission_grade extends external_api {
                                                                          'options' => $options,
                                                                         ]);
 
-        if ($params['grade'] === null || $params['grade'] === '') {
+        if ($params['grade'] === null) {
             throw new moodle_exception('graderequired', 'block_mark_manager');
         }
 

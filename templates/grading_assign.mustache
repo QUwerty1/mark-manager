@@ -1,10 +1,9 @@
 {{! @template block_mark_manager/grading_assign }}
 {{#issubmitted}}
-<form class="mm-grade-form"
+<form class="mm-grade-form" novalidate
       data-type="{{typeidentifier}}"
       data-workid="{{workid}}"
-      data-userid="{{userid}}"
-      onsubmit="return false;">
+      data-userid="{{userid}}">
     <div class="mm-grade-header mb-3 pb-3 border-bottom">
         <div class="d-flex justify-content-between align-items-start mb-1">
             <h5 class="mb-0">{{studentname}}</h5>
@@ -92,7 +91,7 @@
                       placeholder="{{#str}} feedbackplaceholder, block_mark_manager {{/str}}"></textarea>
         </div>
 
-        <button type="button" class="btn btn-primary btn-block mm-save-grade-btn">
+        <button type="submit" class="btn btn-primary btn-block">
             <i class="fa fa-save mr-1"></i>
             {{#str}} savegrade, block_mark_manager {{/str}}
         </button>

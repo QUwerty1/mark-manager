@@ -42,6 +42,12 @@ $manageroles    = get_config('block_mark_manager', 'manageroles');
 $allowedroleids = !empty($manageroles) ? explode(',', $manageroles) : [];
 $hasaccess      = is_siteadmin($USER->id);
 
+// Fallback to the standard capability (editingteacher and manager by
+// default) when the manageroles setting is empty.
+if (!$hasaccess && has_capability('block/mark_manager:manage', $context)) {
+    $hasaccess = true;
+}
+
 if (!$hasaccess && !empty($allowedroleids)) {
     $userroles = get_user_roles($context, $USER->id);
     foreach ($userroles as $role) {
@@ -109,6 +115,7 @@ $templatedata = new \block_mark_manager\output\manage_access_page(
 );
 
 $renderer = $PAGE->get_renderer('block_mark_manager');
+$PAGE->requires->js_call_amd('block_mark_manager/manage_access', 'init', []);
 echo $OUTPUT->header();
 echo $renderer->render_manage_access_page($templatedata);
 echo $OUTPUT->footer();

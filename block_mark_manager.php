@@ -76,7 +76,6 @@ class block_mark_manager extends block_base
                     'icon' => 'i/calendar',
                     'label' => get_string('requiresgrading', 'block_mark_manager'),
                     'count' => $requiresgrading,
-                    'notnull' => $requiresgrading > 0,
                     'status' => 'ungraded',
                    ];
 
@@ -85,7 +84,6 @@ class block_mark_manager extends block_base
                     'icon' => 'i/valid',
                     'label' => get_string('graded', 'block_mark_manager'),
                     'count' => $graded,
-                    'notnull' => $graded > 0,
                     'status' => 'graded',
                    ];
 
@@ -94,7 +92,6 @@ class block_mark_manager extends block_base
                     'icon' => 'i/invalid',
                     'label' => get_string('notsubmitted', 'block_mark_manager'),
                     'count' => $notsubmitted,
-                    'notnull' => $notsubmitted > 0,
                     'status' => 'unsubmitted',
                    ];
 

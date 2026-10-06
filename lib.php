@@ -82,6 +82,13 @@ function block_mark_manager_user_can_access(int $courseid): bool {
         }
     }
 
+    // Fallback to the standard capability: roles with block/mark_manager:view
+    // (editingteacher, teacher, manager by default) can use the block even when
+    // the viewroles setting is empty (e.g. on a fresh install or in Behat).
+    if (has_capability('block/mark_manager:view', $context)) {
+        return true;
+    }
+
     return $DB->record_exists('block_mark_manager_access', [
                                                             'courseid' => $courseid,
                                                             'userid' => $USER->id,

@@ -245,8 +245,8 @@ class assign_handler implements submission_handler_interface {
             $userobj->alternatename     = $r->alternatename ?? '';
 
             $fullname = fullname($userobj);
-            if (!empty($filters['studentname'])) {
-                if (stripos($fullname, $filters['studentname']) === false) {
+            if (!empty($filters['student'])) {
+                if (stripos($fullname, $filters['student']) === false) {
                     continue;
                 }
             }

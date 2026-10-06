@@ -93,6 +93,12 @@ class block_mark_manager_edit_form extends block_edit_form {
             return true;
         }
 
+        // Fallback to the standard capability (editingteacher and manager by
+        // default) when the manageroles setting is empty.
+        if (has_capability('block/mark_manager:manage', $context, $userid)) {
+            return true;
+        }
+
         $manageroles = get_config('block_mark_manager', 'manageroles');
         if (empty($manageroles)) {
             return false;
