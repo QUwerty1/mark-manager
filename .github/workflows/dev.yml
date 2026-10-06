@@ -1,0 +1,116 @@
+name: Dev CI
+
+on:
+  push:
+    branches: [ dev ]
+  pull_request:
+    branches: [ dev ]
+
+jobs:
+  test:
+    name: PHPUnit & Behat (PHP ${{ matrix.php }} / Moodle ${{ matrix.moodle }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: [ '7.4' ]
+        moodle: [ 'MOODLE_39_STABLE' ]
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout plugin
+        uses: actions/checkout@v4
+        with:
+          path: block_mark_manager
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pgsql, zip, gd, intl, soap, xmlrpc, mbstring, curl, xml, json
+          ini-values: max_input_vars=5000, memory_limit=512M
+          coverage: none
+
+      - name: Install composer
+        run: |
+          curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+          composer --version
+
+      - name: Install moodle-plugin-ci
+        run: |
+          composer create-project -n --no-dev moodlehq/moodle-plugin-ci ci ^4
+          echo "$GITHUB_WORKSPACE/ci/bin" >> $GITHUB_PATH
+
+      - name: Install Moodle
+        run: ci/bin/moodle-plugin-ci install --plugin ./block_mark_manager --db-host 127.0.0.1
+        env:
+          DB: pgsql
+          DB_HOST: 127.0.0.1
+          DB_USER: postgres
+          DB_PASS: postgres
+          DB_NAME: moodle
+          MOODLE_BRANCH: ${{ matrix.moodle }}
+
+      - name: Install en_AU.UTF-8 locale
+        run: |
+          sudo locale-gen en_AU.UTF-8
+          sudo update-locale
+
+      - name: phplint
+        run: ci/bin/moodle-plugin-ci phplint ./block_mark_manager
+
+      - name: phpmd
+        run: ci/bin/moodle-plugin-ci phpmd ./block_mark_manager
+
+      - name: validate
+        run: ci/bin/moodle-plugin-ci validate ./block_mark_manager || true
+
+      - name: PHPUnit
+        run: ci/bin/moodle-plugin-ci phpunit ./block_mark_manager
+
+      - name: Behat
+        run: ci/bin/moodle-plugin-ci behat ./block_mark_manager --profile chrome
+        env:
+          MOODLE_START_BEHAT_SERVERS: YES
+
+  create-merge-request:
+    name: Create MR to main
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Pull Request dev -> main
+        run: |
+          gh pr create \
+            --base main \
+            --head dev \
+            --title "Auto MR: dev → main (tests passed)" \
+            --body "Автоматический merge-request после успешного прохождения тестов." \
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
