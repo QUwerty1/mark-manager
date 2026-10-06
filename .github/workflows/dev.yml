@@ -94,6 +94,10 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
 
+    permissions:
+      contents: write
+      pull-requests: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -102,14 +106,11 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Pull Request dev -> main
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: auto merge dev -> main after CI"
-          title: "Auto MR: dev → main (tests passed)"
-          body: |
-            Автоматический merge-request после успешного прохождения тестов.
-          branch: dev
-          base: main
-          labels: automerge, ci
-          draft: false
+        run: |
+          gh pr create \
+            --base main \
+            --head dev \
+            --title "Auto MR: dev → main (tests passed)" \
+            --body "Автоматический merge-request после успешного прохождения тестов." \
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
