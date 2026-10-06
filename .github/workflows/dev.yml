@@ -23,7 +23,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: moodle
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
         options: >-
@@ -66,21 +66,16 @@ jobs:
       - name: Install moodle-plugin-ci
         run: |
           composer create-project -n --no-dev moodlehq/moodle-plugin-ci ci ^4
-          # ВАЖНО: бинарник лежит в ci/bin/, а не в ci/vendor/bin/
           echo "$GITHUB_WORKSPACE/ci/bin" >> $GITHUB_PATH
-
-      - name: Verify moodle-plugin-ci installed
-        run: |
-          echo "=== ci/bin ==="
-          ls -la ci/bin/
-          echo "=== ci/vendor/bin ==="
-          ls -la ci/vendor/bin/ || true
-          ci/bin/moodle-plugin-ci --version
 
       - name: Install Moodle
         run: ci/bin/moodle-plugin-ci install --plugin ./block_mark_manager --db-host 127.0.0.1
         env:
           DB: pgsql
+          DB_HOST: 127.0.0.1
+          DB_USER: postgres
+          DB_PASS: postgres
+          DB_NAME: moodle
           MOODLE_BRANCH: ${{ matrix.moodle }}
 
       - name: phplint
