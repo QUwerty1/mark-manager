@@ -32,18 +32,6 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-      selenium:
-        image: selenium/standalone-chrome:4.11.0
-        ports:
-          - 4444:4444
-          - 7900:7900
-        options: >-
-          --shm-size=2g
-          --health-cmd "curl -f http://localhost:4444/wd/hub/status || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - name: Checkout plugin
         uses: actions/checkout@v4
@@ -98,7 +86,7 @@ jobs:
       - name: Behat
         run: ci/bin/moodle-plugin-ci behat ./block_mark_manager --profile chrome
         env:
-          BEHAT_RUN: 1
+          MOODLE_START_BEHAT_SERVERS: YES
 
   create-merge-request:
     name: Create MR to main
