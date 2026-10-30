@@ -392,4 +392,43 @@ class quiz_handler_test extends \advanced_testcase {
             $this->assertEquals('attemptrequired', $e->errorcode);
         }
     }
+
+    /**
+     * I31: save_grade() requires mod/quiz:grade even when the user can grade through the block.
+     *
+     * @covers ::save_grade
+     */
+    public function test_save_grade_requires_the_quiz_grading_capability() {
+        // Test case I31 of tests/README.md.
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course    = $generator->create_course();
+        $quiz      = $this->create_quiz_with_essays($course, 1);
+
+        $student = $generator->create_and_enrol($course, 'student');
+        $this->create_attempt($quiz, $student);
+
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $context = \context_course::instance($course->id);
+        $roleid  = $DB->get_field('role', 'id', ['shortname' => 'editingteacher'], MUST_EXIST);
+        assign_capability('mod/quiz:grade', CAP_PROHIBIT, $roleid, $context->id);
+        accesslib_clear_all_caches_for_unit_testing();
+
+        $this->setUser($teacher);
+        $this->assertTrue(has_capability('block/mark_manager:grade', $context));
+
+        $handler = new quiz_handler();
+
+        try {
+            $handler->save_grade((int)$quiz->cmid, (int)$student->id, 5.0, '', ['slot' => 1]);
+            $this->fail('An access exception was expected for a user without mod/quiz:grade.');
+        } catch (\required_capability_exception $e) {
+            $this->assertEquals(get_capability_string('mod/quiz:grade'), $e->a);
+        }
+
+        $this->assertEquals(0, $handler->get_graded_count($course->id));
+    }
 }

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="blocks/mark_manager/db" VERSION="20260628" COMMENT="XMLDB file for block_mark_manager"
+<XMLDB PATH="blocks/mark_manager/db" VERSION="20261030" COMMENT="XMLDB file for block_mark_manager"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
   <TABLES>
@@ -18,7 +18,6 @@
       </KEYS>
       <INDEXES>
         <INDEX NAME="course_user" UNIQUE="true" FIELDS="courseid, userid" COMMENT="Один пользователь — одна запись на курс"/>
-        <INDEX NAME="courseid_idx" UNIQUE="false" FIELDS="courseid" COMMENT="Быстрый поиск по курсу"/>
       </INDEXES>
     </TABLE>
   </TABLES>

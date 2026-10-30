@@ -204,4 +204,47 @@ class forum_handler_test extends \advanced_testcase {
             $this->assertEquals('submissionrequired', $e->errorcode);
         }
     }
+
+    /**
+     * I32: save_grade() requires mod/forum:rate even when the user can grade through the block.
+     *
+     * @covers ::save_grade
+     */
+    public function test_save_grade_requires_the_forum_rating_capability() {
+        // Test case I32 of tests/README.md.
+        global $DB;
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $generator = $this->getDataGenerator();
+        $course    = $generator->create_course();
+        $forum     = $this->create_rated_forum($course);
+
+        $student = $generator->create_and_enrol($course, 'student');
+        $this->create_posts($forum, $student, 1);
+
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $context = \context_course::instance($course->id);
+        $roleid  = $DB->get_field('role', 'id', ['shortname' => 'editingteacher'], MUST_EXIST);
+        assign_capability('mod/forum:rate', CAP_PROHIBIT, $roleid, $context->id);
+        accesslib_clear_all_caches_for_unit_testing();
+
+        $this->setUser($teacher);
+        $this->assertTrue(has_capability('block/mark_manager:grade', $context));
+
+        $handler = new forum_handler();
+
+        try {
+            $handler->save_grade((int)$forum->cmid, (int)$student->id, 4.0, '', []);
+            $this->fail('An access exception was expected for a user without mod/forum:rate.');
+        } catch (\required_capability_exception $e) {
+            $this->assertEquals(get_capability_string('mod/forum:rate'), $e->a);
+        }
+
+        $this->assertFalse($DB->record_exists('rating', [
+            'component'  => 'mod_forum',
+            'ratingarea' => 'post',
+        ]));
+    }
 }

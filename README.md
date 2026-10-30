@@ -71,8 +71,7 @@
 
 - ссылка **«Управлять индивидуальным доступом»** доступна из настроек экземпляра блока (шестерёнка → «Настроить блок»);
 - целевая страница — `blocks/mark_manager/manage_access.php`;
-- выданные доступы хранятся в таблице `block_mark_manager_access` (`courseid`, `userid`, `timecreated`, `timemodified`);
-- управлять доступом могут администраторы сайта и пользователи с ролями из настройки `manageroles`.
+- выданные доступы хранятся в таблице `block_mark_manager_access` (`courseid`, `userid`, `timecreated`, `timemodified`);- управлять доступом могут администраторы сайта, пользователи с ролями из настройки `manageroles` и пользователи с возможностью `block/mark_manager:manage`.
 
 ### Возможности (capabilities)
 
@@ -138,7 +137,7 @@
 
 | Функция | Тип | Возможность |
 | --- | --- | --- |
-| `block_mark_manager_save_submission_grade` | write (ajax) | `block/mark_manager:grade` |
+| `block_mark_manager_save_submission_grade` | write (ajax) | `block/mark_manager:grade` и возможность оценивания модуля: `mod/assign:grade`, `mod/quiz:grade` или `mod/forum:rate` |
 
 Параметры: `type` (идентификатор типа), `workid` (cmid), `userid`, `grade`,
 `feedback`, `options` (JSON со специфичными опциями, например `slot` для эссе).

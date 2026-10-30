@@ -68,6 +68,8 @@
 | **I28** | `block_mark_manager::get_content` отображает агрегированные счётчики | Курс с 3 assign, 2 quiz, 1 forum; разные статусы | В `content->text` отрендерены 3 счётчика (`requiresgrading`, `graded`, `notsubmitted`) с корректными числами; ссылки на `progressreport` и `studentlist` |
 | **I29** | `block_mark_manager::get_content` скрывает блок при отсутствии доступа | Блок добавлен, но пользователь не имеет прав | `content->text` пустой (блок полностью скрыт) |
 | **I30** | `submission_handler_registry` возвращает один и тот же экземпляр при повторных вызовах | Два вызова `::instance()` в одном запросе | Возвращается один и тот же объект (`===`) |
+| **I31** | `quiz_handler::save_grade` требует возможность `mod/quiz:grade` | Преподаватель с `block/mark_manager:grade`, но с запрещённой `mod/quiz:grade` | Выбрасывается `required_capability_exception`; оценка не сохранена |
+| **I32** | `forum_handler::save_grade` требует возможность `mod/forum:rate` | Преподаватель с `block/mark_manager:grade`, но с запрещённой `mod/forum:rate` | Выбрасывается `required_capability_exception`; рейтинг не создан |
 
 ### 3. E2E-тесты
 
