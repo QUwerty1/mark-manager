@@ -88,7 +88,21 @@ define([
         }).fail(Notification.exception);
     };
 
-    var saveGrade = function (type, workid, userid, grade, feedback, options) {
+    var refreshBlockContent = function () {
+        return Fragment.loadFragment(
+            "block_mark_manager",
+            "block_content",
+            M.cfg.contextid,
+            {courseid: courseid}
+        ).then(function (html) {
+            if (html && html.length > 0) {
+                $(".block-mark-manager-content").replaceWith(html);
+            }
+            return;
+        }).fail(Notification.exception);
+    };
+
+    var saveGrade = function (type, workid, userid, slot, grade, feedback, options) {
         Ajax.call([{
             methodname: "block_mark_manager_save_submission_grade",
             args: {
@@ -107,6 +121,8 @@ define([
                         type: "success"
                     });
                     loadList();
+                    loadGrade(type, workid, userid, slot);
+                    refreshBlockContent();
                     return;
                 });
             } else {
@@ -185,8 +201,15 @@ define([
             if (type === "quiz" && slot) {
                 options.slot = slot;
             }
+            if (type === "workshop") {
+                options.assessmentgrades = {};
+                $form.find('input[name="assessmentgrade"]').each(function () {
+                    var $input = $(this);
+                    options.assessmentgrades[$input.attr("data-assessmentid")] = $input.val();
+                });
+            }
 
-            saveGrade(type, workid, userid, grade, feedback, options);
+            saveGrade(type, workid, userid, slot, grade, feedback, options);
         });
 
         $(document).on("change", ".mm-filter-status", function () {

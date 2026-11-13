@@ -24,7 +24,7 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version     = 2026103000;
+$plugin->version     = 2026111300;
 $plugin->requires    = 2020061500;
 $plugin->component   = 'block_mark_manager';
 $plugin->maturity    = MATURITY_ALPHA;

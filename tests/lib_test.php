@@ -18,7 +18,7 @@
  * Unit tests of the library functions of the block.
  *
  * Test cases U19 - U26 of tests/README.md (the counters and the grouping helpers)
- * and I20 - I23 (the fragment callbacks rendered with real modules).
+ * and I20 - I23, I41 (the fragment callbacks rendered with real modules).
  *
  * @package    block_mark_manager
  * @category   test
@@ -28,6 +28,7 @@
  * @covers     ::block_mark_manager_group_works
  * @covers     ::block_mark_manager_output_fragment_work_list
  * @covers     ::block_mark_manager_output_fragment_grade_work
+ * @covers     ::block_mark_manager_output_fragment_block_content
  */
 
 namespace block_mark_manager;
@@ -452,5 +453,32 @@ class lib_test extends \advanced_testcase {
         $this->assertStringContainsString(get_string('attemptrequired', 'block_mark_manager'), $html);
         // The grading form itself is not rendered without a finished attempt.
         $this->assertStringNotContainsString('mm-grade-form', $html);
+    }
+
+    /**
+     * I41: output_fragment_block_content() renders the current counters and hides them from users without access.
+     *
+     * @covers ::block_mark_manager_output_fragment_block_content
+     * @covers ::block_mark_manager_render_content
+     */
+    public function test_output_fragment_block_content_renders_the_counters() {
+        // Test case I41 of tests/README.md.
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course    = $generator->create_course();
+        $generator->create_module('assign', ['course' => $course->id]);
+        $student = $generator->create_and_enrol($course, 'student');
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+
+        $this->setUser($teacher);
+        $html = \block_mark_manager_output_fragment_block_content(['courseid' => (int)$course->id]);
+
+        $this->assertStringContainsString('block-mark-manager-content', $html);
+        // One student has not submitted the only assignment.
+        $this->assertSame(1, preg_match('~data-status="unsubmitted".*?badge[^>]*>\\s*1\\s*<~s', $html));
+
+        $this->setUser($student);
+        $this->assertSame('', \block_mark_manager_output_fragment_block_content(['courseid' => (int)$course->id]));
     }
 }

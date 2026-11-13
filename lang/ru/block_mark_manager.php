@@ -131,6 +131,24 @@ $string['rating']                  = 'Рейтинг';
 $string['forumpostsrequired']      = 'Требуются посты в форуме';
 $string['forumpostsrequired_desc'] = 'Студент ещё не оставил ни одного поста в этом форуме. Оценивать можно только студентов с постами.';
 
+// Workshop grading.
+$string['workshopsubmissiongrade']         = 'Оценка за работу';
+$string['workshopassessmentgrades']        = 'Оценки за оценивание';
+$string['peeraggregate']                   = 'Вычисленная оценка по взаимным оценкам';
+$string['gradeoverride']                   = 'Переопределить оценку';
+$string['calculatedgrade']                 = 'Вычисленная оценка';
+$string['notassessed']                     = 'Ещё не оценено';
+$string['noassessments']                   = 'У студента нет распределённых оцениваний.';
+$string['assessmentgradeoverride']         = 'Переопределить оценку за оценивание работы {$a}';
+$string['assessmentoverridehelp']          = 'Оставьте поле пустым, чтобы сохранить вычисленную оценку за это оценивание.';
+$string['workshopgradebooknote']           = 'Как и в самом семинаре, оценки передаются в журнал оценок при закрытии семинара.';
+$string['workshopphasenotice']             = 'Семинар находится в фазе «{$a}». Переопределять оценки можно только в фазе оценивания оценок.';
+$string['openworkshop']                    = 'Открыть семинар';
+$string['workshopnotevaluation']           = 'Переопределять оценки можно только когда семинар находится в фазе оценивания оценок.';
+$string['workshopsubmissionrequired_desc'] = 'Студент ещё не отправил работу в этот семинар. Оценивать можно только студентов, отправивших работу.';
+$string['invalidassessment']               = 'Неверное оценивание студента.';
+$string['graderangeerror']                 = 'Оценка должна быть в диапазоне от {$a->min} до {$a->max}.';
+
 // Pagination.
 $string['previouspage'] = 'Назад';
 $string['nextpage']     = 'Вперёд';

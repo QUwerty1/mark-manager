@@ -96,6 +96,84 @@ function block_mark_manager_user_can_access(int $courseid): bool {
 }
 
 /**
+ * Renders the block content: the counters of works by status and the report links.
+ *
+ * Used by the block itself and by the 'block_content' fragment, which refreshes
+ * the counters after a grade is saved in the modal.
+ *
+ * @param int $courseid Course ID.
+ * @return string Rendered HTML.
+ */
+function block_mark_manager_render_content(int $courseid): string {
+    global $OUTPUT;
+
+    $registry = submission_handler_registry::instance();
+    $registry->register_default();
+
+    $counts = $registry->aggregate_counts($courseid);
+
+    $items = [
+              [
+               'url' => '',
+               'icon' => 'i/calendar',
+               'label' => get_string('requiresgrading', 'block_mark_manager'),
+               'count' => $counts['ungraded'],
+               'status' => 'ungraded',
+              ],
+              [
+               'url' => '',
+               'icon' => 'i/valid',
+               'label' => get_string('graded', 'block_mark_manager'),
+               'count' => $counts['graded'],
+               'status' => 'graded',
+              ],
+              [
+               'url' => '',
+               'icon' => 'i/invalid',
+               'label' => get_string('notsubmitted', 'block_mark_manager'),
+               'count' => $counts['unsubmitted'],
+               'status' => 'unsubmitted',
+              ],
+             ];
+
+    $reports = [
+                [
+                 'url' => new moodle_url('/grade/report/grader/index.php', ['id' => $courseid]),
+                 'icon' => 'i/grades',
+                 'label' => get_string('progressreport', 'block_mark_manager'),
+                ],
+                [
+                 'url' => new moodle_url('/user/index.php', ['id' => $courseid]),
+                 'icon' => 'i/group',
+                 'label' => get_string('studentlist', 'block_mark_manager'),
+                ],
+               ];
+
+    return $OUTPUT->render_from_template('block_mark_manager/content', [
+                                                                        'aggregations' => $items,
+                                                                        'reports' => $reports,
+                                                                        'courseid' => $courseid,
+                                                                       ]);
+}
+
+/**
+ * Fragment callback refreshing the block content (callback = 'block_content').
+ *
+ * @param array|stdClass $args Fragment arguments (courseid).
+ * @return string Fragment HTML content, empty when the user has no access.
+ */
+function block_mark_manager_output_fragment_block_content($args): string {
+    $args     = (array)$args;
+    $courseid = clean_param($args['courseid'] ?? 0, PARAM_INT);
+
+    if ($courseid <= 0 || !block_mark_manager_user_can_access($courseid)) {
+        return '';
+    }
+
+    return block_mark_manager_render_content($courseid);
+}
+
+/**
  * Fragment callback for the works list (callback = 'work_list').
  *
  * @param array|stdClass $args Fragment arguments (courseid, filters).

@@ -1,0 +1,212 @@
+{{! @template block_mark_manager/grading_workshop }}
+{{!
+    Grading form of a workshop student: override of the grade for the submission
+    (with the feedback for the author) and overrides of the grades for the
+    assessments the student made. Editable only in the grading evaluation phase.
+
+    Example context (json):
+    {
+        "typeidentifier": "workshop", "workid": 5, "userid": 7,
+        "studentname": "Student One", "workname": "Workshop",
+        "issubmitted": true, "submissiontitle": "My essay",
+        "submissiontext": "<p>Text</p>", "hassubmissiontext": true,
+        "files": [], "hasfiles": false,
+        "peergrade": 72.5, "haspeergrade": true,
+        "gradeover": null, "hasgradeover": false, "feedbackauthor": "",
+        "maxgrade": 80, "maxgradinggrade": 20,
+        "assessments": [{"assessmentid": 3, "authorname": "Student Two", "submissiontitle": "Other",
+                         "isassessed": true, "gradinggrade": 18, "hasgradinggrade": true,
+                         "gradinggradeover": null, "assessurl": "#"}],
+        "hasassessments": true,
+        "aggregatedgradinggrade": 18, "hasaggregatedgradinggrade": true,
+        "canevaluate": true, "phasename": "Grading evaluation phase",
+        "workshopurl": "#", "gradingurl": "#"
+    }
+}}
+{{#issubmitted}}
+<form class="mm-grade-form" novalidate
+      data-type="{{typeidentifier}}"
+      data-workid="{{workid}}"
+      data-userid="{{userid}}">
+    <div class="mm-grade-header mb-3 pb-3 border-bottom">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+            <h5 class="mb-0">{{studentname}}</h5>
+            {{#gradingurl}}
+                <a href="{{gradingurl}}"
+                   class="btn btn-outline-secondary btn-sm ml-2 flex-shrink-0"
+                   title="{{#str}} openfullgrading, block_mark_manager {{/str}}"
+                   target="_blank">
+                    <i class="fa fa-external-link mr-1"></i>
+                    {{#str}} openfullgrading, block_mark_manager {{/str}}
+                </a>
+            {{/gradingurl}}
+        </div>
+        <p class="text-muted mb-1">{{workname}}</p>
+        {{#hasduedate}}
+            <p class="text-muted small mb-1">{{#str}} duedate, block_mark_manager {{/str}}: {{duedateformatted}}</p>
+        {{/hasduedate}}
+        <p class="text-muted small mb-0">{{phasename}}</p>
+    </div>
+
+    {{^canevaluate}}
+    <div class="alert alert-info mm-workshop-phase-notice">
+        {{#str}} workshopphasenotice, block_mark_manager, {{phasename}} {{/str}}
+        <a href="{{workshopurl}}" target="_blank">{{#str}} openworkshop, block_mark_manager {{/str}}</a>
+    </div>
+    {{/canevaluate}}
+
+    {{! === Submission === }}
+    <div class="mm-submission-block mb-3">
+        <h6 class="text-muted text-uppercase small font-weight-bold">
+            {{#str}} submissiontext, block_mark_manager {{/str}}
+        </h6>
+        <p class="font-weight-bold mb-1">{{submissiontitle}}</p>
+        {{#hassubmissiontext}}
+            <div class="mm-submission-text border rounded p-3 bg-light">
+                {{{submissiontext}}}
+            </div>
+        {{/hassubmissiontext}}
+        {{^hassubmissiontext}}
+            <div class="text-muted font-italic p-2">
+                {{#str}} nosubmissiontext, block_mark_manager {{/str}}
+            </div>
+        {{/hassubmissiontext}}
+    </div>
+
+    {{#hasfiles}}
+    <div class="mm-files-block mb-3">
+        <h6 class="text-muted text-uppercase small font-weight-bold">
+            {{#str}} attachedfiles, block_mark_manager {{/str}}
+        </h6>
+        <ul class="list-group">
+            {{#files}}
+                <li class="list-group-item d-flex justify-content-between align-items-center p-2">
+                    <a href="{{url}}" target="_blank" class="text-break">
+                        <i class="fa fa-file mr-2"></i> {{filename}}
+                    </a>
+                    <span class="badge badge-light badge-pill">{{mimetype}}</span>
+                </li>
+            {{/files}}
+        </ul>
+    </div>
+    {{/hasfiles}}
+
+    {{! === Grade for submission === }}
+    <div class="mm-grading-block mt-4">
+        <h6 class="text-muted text-uppercase small font-weight-bold">
+            {{#str}} workshopsubmissiongrade, block_mark_manager {{/str}}
+        </h6>
+        <p class="small mb-2">
+            {{#str}} peeraggregate, block_mark_manager {{/str}}:
+            {{#haspeergrade}}<strong>{{peergrade}}</strong> / {{maxgrade}}{{/haspeergrade}}
+            {{^haspeergrade}}<span class="text-muted">{{#str}} nogradeyet, block_mark_manager {{/str}}</span>{{/haspeergrade}}
+        </p>
+        <div class="form-group">
+            <label for="mm-grade-input" class="font-weight-bold">
+                {{#str}} gradeoverride, block_mark_manager {{/str}}
+            </label>
+            <input type="number"
+                   class="form-control"
+                   id="mm-grade-input"
+                   name="grade"
+                   min="0"
+                   max="{{maxgrade}}"
+                   step="0.01"
+                   value="{{#hasgradeover}}{{gradeover}}{{/hasgradeover}}"
+                   placeholder="0 — {{maxgrade}}"
+                   {{^canevaluate}}disabled{{/canevaluate}}
+                   required>
+            <small class="form-text text-muted">
+                {{#str}} maxmark, block_mark_manager {{/str}}: {{maxgrade}}
+            </small>
+        </div>
+
+        <div class="form-group">
+            <label for="mm-feedback-input" class="font-weight-bold">
+                {{#str}} feedback, block_mark_manager {{/str}}
+            </label>
+            <textarea class="form-control"
+                      id="mm-feedback-input"
+                      name="feedback"
+                      rows="4"
+                      {{^canevaluate}}disabled{{/canevaluate}}
+                      placeholder="{{#str}} feedbackplaceholder, block_mark_manager {{/str}}">{{feedbackauthor}}</textarea>
+        </div>
+    </div>
+
+    {{! === Grades for assessment === }}
+    <div class="mm-workshop-assessments-block mt-4">
+        <h6 class="text-muted text-uppercase small font-weight-bold">
+            {{#str}} workshopassessmentgrades, block_mark_manager {{/str}}
+        </h6>
+        <p class="small mb-2">
+            {{#str}} aggregatedgrade, block_mark_manager {{/str}}:
+            {{#hasaggregatedgradinggrade}}<strong>{{aggregatedgradinggrade}}</strong> / {{maxgradinggrade}}{{/hasaggregatedgradinggrade}}
+            {{^hasaggregatedgradinggrade}}<span class="text-muted">{{#str}} nogradeyet, block_mark_manager {{/str}}</span>{{/hasaggregatedgradinggrade}}
+        </p>
+        {{#hasassessments}}
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>{{#str}} work, block_mark_manager {{/str}}</th>
+                    <th>{{#str}} calculatedgrade, block_mark_manager {{/str}}</th>
+                    <th>{{#str}} gradeoverride, block_mark_manager {{/str}}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#assessments}}
+                <tr>
+                    <td>
+                        <a href="{{assessurl}}" target="_blank">{{submissiontitle}}</a>
+                        <div class="small text-muted">{{authorname}}</div>
+                        {{^isassessed}}<div class="small text-warning">{{#str}} notassessed, block_mark_manager {{/str}}</div>{{/isassessed}}
+                    </td>
+                    <td>
+                        {{#hasgradinggrade}}{{gradinggrade}} / {{maxgradinggrade}}{{/hasgradinggrade}}
+                        {{^hasgradinggrade}}<span class="text-muted">—</span>{{/hasgradinggrade}}
+                    </td>
+                    <td>
+                        <label for="mm-assessmentgrade-{{assessmentid}}" class="sr-only">
+                            {{#str}} assessmentgradeoverride, block_mark_manager, {{submissiontitle}} {{/str}}
+                        </label>
+                        <input type="number"
+                               class="form-control form-control-sm"
+                               id="mm-assessmentgrade-{{assessmentid}}"
+                               name="assessmentgrade"
+                               data-assessmentid="{{assessmentid}}"
+                               min="0"
+                               max="{{maxgradinggrade}}"
+                               step="0.01"
+                               value="{{gradinggradeover}}"
+                               placeholder="0 — {{maxgradinggrade}}"
+                               {{^canevaluate}}disabled{{/canevaluate}}>
+                    </td>
+                </tr>
+                {{/assessments}}
+            </tbody>
+        </table>
+        <small class="form-text text-muted mb-3">{{#str}} assessmentoverridehelp, block_mark_manager {{/str}}</small>
+        {{/hasassessments}}
+        {{^hasassessments}}
+            <div class="text-muted font-italic p-2">{{#str}} noassessments, block_mark_manager {{/str}}</div>
+        {{/hasassessments}}
+    </div>
+
+    <p class="small text-muted">{{#str}} workshopgradebooknote, block_mark_manager {{/str}}</p>
+
+    <button type="submit" class="btn btn-primary btn-block" {{^canevaluate}}disabled{{/canevaluate}}>
+        <i class="fa fa-save mr-1"></i>
+        {{#str}} savegrade, block_mark_manager {{/str}}
+    </button>
+</form>
+{{/issubmitted}}
+{{^issubmitted}}
+<div class="alert alert-warning text-center my-4">
+    <i class="fa fa-exclamation-triangle fa-2x mb-2 d-block"></i>
+    <h5>{{#str}} submissionrequired, block_mark_manager {{/str}}</h5>
+    <p class="mb-2">{{#str}} workshopsubmissionrequired_desc, block_mark_manager {{/str}}</p>
+    <small class="text-muted">
+        <strong>{{studentname}}</strong> — {{workname}}
+    </small>
+</div>
+{{/issubmitted}}

@@ -130,7 +130,7 @@ class save_submission_grade_test extends \advanced_testcase {
         $this->setUser($this->getDataGenerator()->create_and_enrol($course, 'editingteacher'));
 
         try {
-            save_submission_grade::execute('workshop', (int)$assign->cmid, (int)$student->id, 90.0, 'OK');
+            save_submission_grade::execute('lesson', (int)$assign->cmid, (int)$student->id, 90.0, 'OK');
             $this->fail('A moodle_exception was expected for an unknown submission type.');
         } catch (\moodle_exception $e) {
             $this->assertEquals('unknownsubmissiontype', $e->errorcode);
