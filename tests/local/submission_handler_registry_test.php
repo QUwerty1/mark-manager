@@ -117,7 +117,7 @@ class submission_handler_registry_test extends \advanced_testcase {
         $registry = $this->get_fresh_registry();
         $registry->register($this->get_handler_mock('assign'));
 
-        $this->assertNull($registry->get_handler('workshop'));
+        $this->assertNull($registry->get_handler('lesson'));
     }
 
     /**

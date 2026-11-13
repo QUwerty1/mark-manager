@@ -791,7 +791,10 @@ class quiz_handler implements submission_handler_interface {
             throw new \moodle_exception('missingslot', 'block_mark_manager');
         }
 
-        $cm   = get_coursemodule_from_id('quiz', $workid, 0, false, MUST_EXIST);
+        $cm = get_coursemodule_from_id('quiz', $workid, 0, false, MUST_EXIST);
+
+        require_capability('mod/quiz:grade', context_module::instance($cm->id));
+
         $quiz = $DB->get_record('quiz', ['id' => $cm->instance], '*', MUST_EXIST);
 
         $attempt = $DB->get_record('quiz_attempts', [

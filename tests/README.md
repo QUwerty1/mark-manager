@@ -8,7 +8,7 @@
 | **U2** | `submission_data::to_array` возвращает ассоциативный массив | DTO из U1 | Возвращается ассоциативный массив с ключами `typeidentifier`, `workid`, `userid`, `studentname`, `workname`, `duedate`, `status`, `grade`, `options` и соответствующими значениями |
 | **U3** | `submission_handler_registry::register` добавляет обработчик в реестр | Мок `submission_handler_interface` с `get_type_identifier()='assign'` | Обработчик добавлен в реестр; `get_handler('assign')` возвращает тот же объект |
 | **U4** | `submission_handler_registry::register` перезаписывает существующий обработчик при повторной регистрации | Два мока с `get_type_identifier()='assign'` | Второй обработчик перезаписывает первый; `get_handler('assign')` возвращает второй мок |
-| **U5** | `submission_handler_registry::get_handler` возвращает `null` для незарегистрированного типа | `type='workshop'` (не зарегистрирован) | Возвращается `null` |
+| **U5** | `submission_handler_registry::get_handler` возвращает `null` для незарегистрированного типа | `type='lesson'` (не зарегистрирован) | Возвращается `null` |
 | **U6** | `submission_handler_registry::get_registered_types` возвращает массив идентификаторов | Зарегистрированы `assign`, `quiz`, `forum` | Возвращается `['assign', 'quiz', 'forum']` |
 | **U7** | `submission_handler_registry::aggregate_counts` суммирует счётчики всех обработчиков | 3 мока-обработчика возвращают: `ungraded=[2,3,1]`, `unsubmitted=[5,0,2]`, `graded=[10,7,4]` | Результат: `['ungraded'=>6, 'unsubmitted'=>7, 'graded'=>21]` |
 | **U8** | `submission_handler_registry::aggregate_works_list` фильтрует работы по статусу | Фильтр `['status'=>'ungraded']`; моки возвращают работы разных статусов | В результате только работы со `status='ungraded'` |
@@ -55,7 +55,7 @@
 | **I15** | `forum_handler::save_grade` выбрасывает исключение при отсутствии постов | Студент не писал в форуме | Выбрасывается `moodle_exception('submissionrequired')` |
 | **I16** | `save_submission_grade::execute` возвращает успех при валидных параметрах | Валидные параметры: `type='assign'`, `workid`, `userid`, `grade=90.0`, `feedback='OK'` | Возвращается `['success'=>true]`; оценка сохранена |
 | **I17** | `save_submission_grade::execute` выбрасывает исключение при пустой оценке | `grade=null` | Выбрасывается `moodle_exception('graderequired')` |
-| **I18** | `save_submission_grade::execute` выбрасывает исключение при неизвестном типе | `type='workshop'` | Выбрасывается `moodle_exception('unknownsubmissiontype')` |
+| **I18** | `save_submission_grade::execute` выбрасывает исключение при неизвестном типе | `type='lesson'` | Выбрасывается `moodle_exception('unknownsubmissiontype')` |
 | **I19** | `save_submission_grade::execute` проверяет capability перед выполнением | Пользователь без права `block/mark_manager:grade` | Выбрасывается исключение доступа (проверка Moodle до вызова метода) |
 | **I20** | `block_mark_manager_output_fragment_work_list` возвращает HTML с пагинацией | `courseid`, фильтры `['page'=>0, 'perpage'=>20]`; в курсе 50 работ | Возвращается HTML с 20 работами; блок пагинации с `totalpages=3` |
 | **I21** | `block_mark_manager_output_fragment_work_list` возвращает предупреждение при отсутствии доступа | Пользователь без прав | Возвращается HTML с `alert alert-warning` и сообщением `nopermissions` |
@@ -68,6 +68,17 @@
 | **I28** | `block_mark_manager::get_content` отображает агрегированные счётчики | Курс с 3 assign, 2 quiz, 1 forum; разные статусы | В `content->text` отрендерены 3 счётчика (`requiresgrading`, `graded`, `notsubmitted`) с корректными числами; ссылки на `progressreport` и `studentlist` |
 | **I29** | `block_mark_manager::get_content` скрывает блок при отсутствии доступа | Блок добавлен, но пользователь не имеет прав | `content->text` пустой (блок полностью скрыт) |
 | **I30** | `submission_handler_registry` возвращает один и тот же экземпляр при повторных вызовах | Два вызова `::instance()` в одном запросе | Возвращается один и тот же объект (`===`) |
+| **I31** | `quiz_handler::save_grade` требует возможность `mod/quiz:grade` | Преподаватель с `block/mark_manager:grade`, но с запрещённой `mod/quiz:grade` | Выбрасывается `required_capability_exception`; оценка не сохранена |
+| **I32** | `forum_handler::save_grade` требует возможность `mod/forum:rate` | Преподаватель с `block/mark_manager:grade`, но с запрещённой `mod/forum:rate` | Выбрасывается `required_capability_exception`; рейтинг не создан |
+| **I33** | `workshop_handler` считает работы по статусам | Семинар: 2 студента с работами (у одного `gradeover`), 1 без работы | `ungraded=1`, `unsubmitted=1`, `graded=1`; оценка в списке — `gradeover` в баллах |
+| **I34** | `workshop_handler::get_grading_template_context` возвращает обе оценки | Студент с работой и выполненным оцениванием, фаза «Оценивание оценок» | `canevaluate=true`, `maxgrade`/`maxgradinggrade`, оценивание с автором и оценкой за оценивание в баллах |
+| **I35** | `workshop_handler::save_grade` переопределяет обе оценки | `grade=60` из 80, `assessmentgrades=[id=>10]` из 20 | `gradeover=75 %`, `gradeoverby`, `feedbackauthor`; `gradinggradeover=50 %`; агрегат в `workshop_aggregations` пересчитан |
+| **I36** | `workshop_handler::save_grade` очищает переопределение оценки за оценивание | `assessmentgrades=[id=>'']` | `gradinggradeover` равен `null` |
+| **I37** | `workshop_handler::save_grade` работает только в фазе «Оценивание оценок» | Семинар в фазе оценивания | `canevaluate=false`; `moodle_exception('workshopnotevaluation')`; оценка не сохранена |
+| **I38** | `workshop_handler::save_grade` требует возможность `mod/workshop:overridegrades` | Преподаватель с `block/mark_manager:grade`, но с запрещённой `mod/workshop:overridegrades` | Выбрасывается `required_capability_exception`; оценка не сохранена |
+| **I39** | `workshop_handler::save_grade` отклоняет чужое оценивание | `assessmentid` оценивания, выполненного другим студентом | `moodle_exception('invalidassessment')`; ничего не сохранено |
+| **I40** | Оценка семинара попадает в журнал только при закрытии | Сохранение через блок, затем `switch_phase(PHASE_CLOSED)` | До закрытия оценки в журнале нет; после — 60 |
+| **I41** | `block_mark_manager_output_fragment_block_content` возвращает актуальные счётчики блока | Преподаватель / студент без доступа | Преподавателю — HTML блока с текущими счётчиками; студенту — пустая строка |
 
 ### 3. E2E-тесты
 
@@ -105,3 +116,7 @@
 | **E26** | Глобальные настройки сохраняются и применяются | Администратор → настройки блока → выбор ролей в `viewroles` и `manageroles` | Настройки сохраняются; пользователи с выбранными ролями получают соответствующие права |
 | **E27** | Интерфейс отображается на выбранном языке | Переключение языка пользователя на английский / русский | Все строки интерфейса блока, модального окна и форм оценивания отображаются на выбранном языке |
 | **E28** | Уведомление об ошибке отображается при сбое сети | Имитация сбоя AJAX (отключить сеть / 500-ответ) | Появляется уведомление об ошибке с текстом из ответа сервера; форма остаётся заполненной |
+| **E29** | Форма оценивания семинара доступна только для чтения вне фазы «Оценивание оценок» | Семинар в фазе оценивания → «Требует оценки» → студент | Видна работа и уведомление о фазе; поле оценки и кнопка «Сохранить» заблокированы |
+| **E30** | Преподаватель переопределяет обе оценки семинара | Фаза «Оценивание оценок», «Пересчитать оценки» → оценка 70, отзыв, оценка за оценивание 15 → «Сохранить» | Уведомление об успехе; форма перезагружена с сохранёнными значениями и агрегатом 15 / 20; счётчики блока обновлены без перезагрузки; в журнале оценки появляются только после закрытия семинара (70 и 15) |
+| **E31** | Оценка семинара вне допустимого диапазона отклоняется | Оценка 90 при максимуме 80 | Уведомление «The grade must be between 0 and 80»; счётчик «Оценено» не меняется |
+| **E32** | Предупреждение для студента без работы в семинаре | «Не сдано» → студент без работы | Предупреждение «Требуется сдача работы» |

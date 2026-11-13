@@ -425,7 +425,10 @@ class forum_handler implements submission_handler_interface {
 
         $cm      = get_coursemodule_from_id('forum', $workid, 0, false, MUST_EXIST);
         $context = context_module::instance($cm->id);
-        $forum   = $DB->get_record('forum', ['id' => $cm->instance], '*', MUST_EXIST);
+
+        require_capability('mod/forum:rate', $context);
+
+        $forum = $DB->get_record('forum', ['id' => $cm->instance], '*', MUST_EXIST);
 
         $sqlposts = "SELECT fp.id
                        FROM {forum_posts} fp

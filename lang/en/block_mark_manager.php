@@ -131,6 +131,24 @@ $string['rating']                  = 'Rating';
 $string['forumpostsrequired']      = 'Forum posts required';
 $string['forumpostsrequired_desc'] = 'This student has not posted in this forum yet. You can only grade students who have posted.';
 
+// Workshop grading.
+$string['workshopsubmissiongrade']         = 'Grade for submission';
+$string['workshopassessmentgrades']        = 'Grades for assessment';
+$string['peeraggregate']                   = 'Calculated grade from peer assessments';
+$string['gradeoverride']                   = 'Override grade';
+$string['calculatedgrade']                 = 'Calculated grade';
+$string['notassessed']                     = 'Not assessed yet';
+$string['noassessments']                   = 'This student has no allocated assessments.';
+$string['assessmentgradeoverride']         = 'Override grade for assessment of {$a}';
+$string['assessmentoverridehelp']          = 'Leave a field empty to keep the calculated grade for that assessment.';
+$string['workshopgradebooknote']           = 'As in the workshop itself, the grades are sent to the gradebook when the workshop is closed.';
+$string['workshopphasenotice']             = 'The workshop is in the "{$a}". Grades can be overridden only in the grading evaluation phase.';
+$string['openworkshop']                    = 'Open workshop';
+$string['workshopnotevaluation']           = 'Grades can be overridden only when the workshop is in the grading evaluation phase.';
+$string['workshopsubmissionrequired_desc'] = 'This student has not submitted any work to this workshop yet. You can only grade students who have submitted.';
+$string['invalidassessment']               = 'Invalid assessment of the student.';
+$string['graderangeerror']                 = 'The grade must be between {$a->min} and {$a->max}.';
+
 // Pagination.
 $string['previouspage'] = 'Previous';
 $string['nextpage']     = 'Next';

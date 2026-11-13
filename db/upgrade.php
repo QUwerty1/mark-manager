@@ -32,7 +32,7 @@ function xmldb_block_mark_manager_upgrade($oldversion) {
     global $DB;
     $dbman = $DB->get_manager();
 
-    if ($oldversion < 2026062807) {
+    if ($oldversion < 2026062902) {
         $table = new xmldb_table('block_mark_manager_access');
 
         $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
@@ -52,6 +52,22 @@ function xmldb_block_mark_manager_upgrade($oldversion) {
         }
 
         upgrade_block_savepoint(true, 2026062902, 'mark_manager');
+    }
+
+    if ($oldversion < 2026103000) {
+        // The foreign key on courseid already creates an index. Earlier versions of install.xml
+        // also declared courseid_idx, which left a duplicate index on fresh installs.
+        $table = new xmldb_table('block_mark_manager_access');
+        $index = new xmldb_index('courseid_idx', XMLDB_INDEX_NOTUNIQUE, ['courseid']);
+
+        // The drop_index() method removes every index on these fields, so one is added back.
+        $indexnames = $dbman->find_index_name($table, $index, true);
+        if (is_array($indexnames) && count($indexnames) > 1) {
+            $dbman->drop_index($table, $index);
+            $dbman->add_index($table, $index);
+        }
+
+        upgrade_block_savepoint(true, 2026103000, 'mark_manager');
     }
 
     return true;

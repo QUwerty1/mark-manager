@@ -27,7 +27,6 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once(__DIR__ . '/lib.php');
 
-use block_mark_manager\local\submission_handler_registry;
 /**
  * The "Mark Manager" block class.
  */
@@ -48,8 +47,6 @@ class block_mark_manager extends block_base
      * @return stdClass
      */
     public function get_content() {
-        global $OUTPUT;
-
         if ($this->content !== null) {
             return $this->content;
         }
@@ -62,61 +59,7 @@ class block_mark_manager extends block_base
             return $this->content;
         }
 
-        $registry = submission_handler_registry::instance();
-        $registry->register_default();
-
-        $counts = $registry->aggregate_counts($this->page->course->id);
-
-        $requiresgrading = $counts['ungraded'];
-        $graded          = $counts['graded'];
-        $notsubmitted    = $counts['unsubmitted'];
-
-        $items[] = [
-                    'url' => '',
-                    'icon' => 'i/calendar',
-                    'label' => get_string('requiresgrading', 'block_mark_manager'),
-                    'count' => $requiresgrading,
-                    'status' => 'ungraded',
-                   ];
-
-        $items[] = [
-                    'url' => '',
-                    'icon' => 'i/valid',
-                    'label' => get_string('graded', 'block_mark_manager'),
-                    'count' => $graded,
-                    'status' => 'graded',
-                   ];
-
-        $items[] = [
-                    'url' => '',
-                    'icon' => 'i/invalid',
-                    'label' => get_string('notsubmitted', 'block_mark_manager'),
-                    'count' => $notsubmitted,
-                    'status' => 'unsubmitted',
-                   ];
-
-        $reports[] = [
-                      'url' => new moodle_url('/grade/report/grader/index.php', ['id' => $this->page->course->id]),
-                      'icon' => 'i/grades',
-                      'label' => get_string('progressreport', 'block_mark_manager'),
-                     ];
-
-        $reports[] = [
-                      'url' => new moodle_url('/user/index.php', ['id' => $this->page->course->id]),
-                      'icon' => 'i/group',
-                      'label' => get_string('studentlist', 'block_mark_manager'),
-                     ];
-
-        $templatecontext = [
-                            'aggregations' => $items,
-                            'reports' => $reports,
-                            'courseid' => $this->page->course->id,
-                           ];
-
-        $this->content->text = $OUTPUT->render_from_template(
-            'block_mark_manager/content',
-            $templatecontext
-        );
+        $this->content->text = block_mark_manager_render_content((int)$this->page->course->id);
 
         $this->page->requires->js_call_amd('block_mark_manager/modal', 'init', [$this->page->course->id]);
 
