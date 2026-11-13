@@ -17,7 +17,7 @@ jobs:
       - name: Checkout plugin
         uses: actions/checkout@v4
         with:
-          path: mark_manager
+          path: block_mark_manager
 
       - name: Generate timestamp
         id: ts
@@ -25,16 +25,14 @@ jobs:
 
       - name: Build plugin zip
         run: |
-          # Moodle expects the top-level folder to be the plugin name without
-          # the type prefix (`mark_manager`, not `block_mark_manager`).
-          # The checkout already places files in `mark_manager/`,
+          # Moodle expects a top-level folder named after the plugin.
+          # The checkout already places files in `block_mark_manager/`,
           # so we just zip that folder as-is.
-          zip -r "block_mark_manager.zip" mark_manager \
-            -x "mark_manager/.git/*" \
-            -x "mark_manager/.github/*" \
-            -x "mark_manager/.gitignore" \
-            -x "mark_manager/.gitattributes" \
-            -x "mark_manager/CLAUDE.md"
+          zip -r "block_mark_manager.zip" block_mark_manager \
+            -x "block_mark_manager/.git/*" \
+            -x "block_mark_manager/.github/*" \
+            -x "block_mark_manager/.gitignore" \
+            -x "block_mark_manager/.gitattributes"
 
       - name: Show archive contents
         run: unzip -l block_mark_manager.zip
